@@ -1,29 +1,130 @@
-/* campus_hub-style.css — Layout a card per la gestione presenze giornaliere */
-/* Dipende da campus-theme.css */
+/* ============================================================================
+   CAMPUS_HUB-COMBINED.CSS — Design System & Layout Operativo Unificato
+   Tema Light attivo di default — Ottimizzato per Hub Presenze Convitto
+   ============================================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght=400;500;600;700&family=JetBrains+Mono:wght=400;600&display=swap');
+
+:root {
+    color-scheme: light only;
+    --bg:             #f0f4f8;
+    --bg-2:           #ffffff;
+    --bg-3:           #e8eef5;
+    --surface:        #ffffff;
+    --surface-2:      #f0f4f8;
+    --surface-3:      #dde5f0;
+    --border:         #00000014;
+    --border-2:       #00000024;
+
+    /* Accenti e Brand */
+    --accent:         #2563eb;
+    --accent-dim:     #2563eb1f;
+    --accent-2:       #0d9488;
+    --accent-2-dim:   #0d94881a;
+
+    /* Stati operativi Convitto */
+    --ok:             #16a34a;
+    --ok-dim:         #16a34a1a;
+    --absent:         #dc2626;
+    --absent-dim:     #dc26261a;
+    --dinner-no:      #2563eb;
+    --dinner-no-dim:  #2563eb1a;
+    --lab:            #d97706;
+    --lab-dim:        #d977061a;
+    --switched:       #0d9488;
+    --switched-dim:   #0d94881a;
+    --pp:             #ea580c;
+
+    /* Bottoni toolbar e Reset */
+    --btn-t1:          #16a34a;
+    --btn-t2:          #2563eb;
+    --btn-t3:          #7c3aed;
+    --btn-t4:          #475569;
+    --btn-reset:       #ea580c;
+    --btn-reset-full:  #b91c1c;
+    --btn-inactive:    #e8eef5;
+
+    /* Tipografia e Testo */
+    --text:           #0f172a;
+    --text-2:          #475569;
+    --text-muted:     #94a3b8;
+    --text-inv:       #ffffff;
+    --font:           'DM Sans', 'Segoe UI', system-ui, sans-serif;
+    --font-mono:      'JetBrains Mono', 'Courier New', monospace;
+
+    /* Geometria e Arrotondamenti */
+    --radius-sm:      6px;
+    --radius:         12px;
+    --radius-lg:      18px;
+    --radius-xl:      24px;
+
+    /* Sistema Ombre */
+    --shadow-sm:      0 1px 4px rgba(0,0,0,0.10);
+    --shadow:         0 4px 16px rgba(0,0,0,0.12);
+    --shadow-lg:      0 8px 32px rgba(0,0,0,0.15);
+
+    /* Animazioni temporali */
+    --t:              0.2s ease;
+}
+
+/* ============================================================================
+   RESET E REGOLE BASE
+   ============================================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 {
+    margin: 0;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+a { color: inherit; text-decoration: none; }
+
+/* Custom Scrollbar per Liste Lunghe */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-2); }
+::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ============================================================================
+   STRUTTURA LAYOUT MAIN & CONTAINER
+   ============================================================================ */
 .container {
     max-width: 1300px;
     margin: 0 auto;
-    padding: 20px 24px 40px;
+    padding: 24px;
 }
 
+/* Header Semantico Unificato con l'HTML */
 header {
-    background: #fe8b0e9e;
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 16px 28px;
-    border-radius: var(--radius-xl);
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border-2);
+    border-left: 4px solid var(--accent);
+    padding: 14px 24px;
+    border-radius: var(--radius-lg);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow-sm);
     gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 20px;
 }
 header h1 {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     background: linear-gradient(90deg, var(--accent), var(--accent-2));
     -webkit-background-clip: text;
@@ -34,15 +135,21 @@ header h1 {
     font-size: 0.78rem;
     color: var(--text-2);
     font-family: var(--font-mono);
-    margin-top: 3px;
+    font-weight: 400;
+    margin-top: 2px;
 }
 #digitalClock {
     font-family: var(--font-mono);
-    font-size: 1.8rem;
+    font-size: 1.6rem;
     font-weight: 600;
     color: var(--accent);
     letter-spacing: 0.05em;
-    text-shadow: 0 0 20px var(--accent-dim);
+    text-shadow: 0 0 20px #2563eb33;
+}
+header .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 header button {
     background: var(--surface-2);
@@ -61,13 +168,174 @@ header button:hover {
     color: var(--text);
 }
 
+/* ============================================================================
+   TOOLBAR, FILTRI E NOTE CONTENITORE
+   ============================================================================ */
+.toolbar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow-sm);
+}
+#search, #roomInput {
+    background: var(--bg-3);
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 9px 14px;
+    font-family: var(--font);
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color var(--t), box-shadow var(--t);
+}
+#search { flex: 1; min-width: 140px; }
+#roomInput { width: 70px; }
+#search:focus, #roomInput:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+}
+input::placeholder { color: var(--text-muted); }
+
+.room-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+/* Sezione Note in Tempo Reale */
+.note-toolbar-container {
+    background: var(--bg-2);
+    border: 1px solid rgba(37, 99, 235, 0.15);
+    border-left: 4px solid var(--lab);
+    border-radius: var(--radius-lg);
+    margin-bottom: 20px;
+    padding: 12px 18px;
+}
+.note-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+.note-icon { font-size: 1.1rem; margin-top: 2px; }
+.note-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: var(--font);
+    font-size: 0.85rem;
+    color: var(--text);
+    resize: vertical;
+    min-height: 48px;
+    line-height: 1.5;
+}
+.clear-note-btn {
+    background: rgba(0,0,0,0.05);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--t);
+    font-weight: bold;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+}
+.clear-note-btn:hover {
+    background: var(--absent-dim);
+    color: var(--absent);
+    border-color: var(--absent);
+}
+
+#info-reset {
+    font-size: 0.68rem;
+    color: var(--absent);
+    font-family: var(--font-mono);
+}
+
+/* ============================================================================
+   BOTTONI AZIONE & SELETTORI DI TURNO
+   ============================================================================ */
+.btn-toolbar, .day-box {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: var(--font);
+    font-weight: 700;
+    font-size: 0.78rem;
+    padding: 10px 14px;
+    transition: all var(--t);
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    text-align: center;
+}
+.btn-toolbar { color: white; border: none; }
+.btn-toolbar:hover, .day-box:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+.day-box { background: var(--surface); color: var(--text-2); flex: 1; }
+.day-box:hover { background: var(--surface-2); color: var(--text); }
+
+.btn-reset, .btn-reset-complete {
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: var(--font);
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: white;
+    padding: 9px 16px;
+    transition: all var(--t);
+    letter-spacing: 0.03em;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.btn-reset { background: var(--btn-reset); box-shadow: 0 2px 8px rgba(234,88,12,0.25); }
+.btn-reset:hover { background: #d35400; transform: translateY(-1px); }
+
+.btn-reset-complete { background: var(--btn-reset-full); box-shadow: 0 2px 8px rgba(185,28,28,0.25); }
+.btn-reset-complete:hover { background: #a93226; transform: translateY(-1px); }
+
+/* Generico bottone report moduli */
+.btn {
+    padding: 9px 28px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 30px;
+    font-family: var(--font);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    transition: all var(--t);
+    box-shadow: 0 4px 16px rgba(37,99,235,0.25);
+}
+
+/* ============================================================================
+   GRID COMPONENTI: CARD STUDENTI (DINAMICHE)
+   ============================================================================ */
 #listaStudenti {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
     gap: 14px;
     animation: fadeIn 0.3s ease;
 }
-
 .student-row {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -82,7 +350,9 @@ header button:hover {
     box-shadow: var(--shadow);
     border-color: var(--border-2);
 }
-.student-row.dinner-no { border-bottom-color: var(--accent); background: var(--accent-dim); }
+
+/* Stati Dinamici delle Card Studente */
+.student-row.dinner-no { border-bottom-color: var(--accent); background: var(--dinner-no-dim); }
 .student-row.assente { border-bottom-color: var(--absent); background: var(--absent-dim); opacity: 0.8; }
 .student-row.highlight-lab {
     background: var(--lab-dim) !important;
@@ -90,12 +360,7 @@ header button:hover {
     border-color: var(--lab-dim) !important;
 }
 
-.st-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-    align-items: center;
-}
+.st-header { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center; }
 .room-badge {
     background: var(--surface-2);
     color: var(--text-2);
@@ -105,29 +370,12 @@ header button:hover {
     font-size: 0.68rem;
     font-family: var(--font-mono);
 }
-.lab-badge {
-    color: var(--lab);
-    font-weight: 700;
-    font-size: 0.72rem;
-    animation: pulse 3s infinite;
-}
-.student-row .st-name {
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 2px;
-}
-.student-row .st-class {
-    font-size: 0.72rem;
-    color: var(--text-2);
-    font-family: var(--font-mono);
-}
+.lab-badge { color: var(--lab); font-weight: 700; font-size: 0.72rem; animation: pulse 3s infinite; }
+.student-row .st-name { font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.student-row .st-class { font-size: 0.72rem; color: var(--text-2); font-family: var(--font-mono); }
 
-.inputs {
-    display: flex;
-    gap: 6px;
-    margin: 10px 0;
-}
+/* Input Orari Entrata/Uscita inside Card */
+.inputs { display: flex; gap: 6px; margin: 10px 0; }
 .inputs input {
     width: 50%;
     padding: 7px 8px;
@@ -141,6 +389,7 @@ header button:hover {
 }
 .inputs input:focus { border-color: var(--accent); }
 
+/* Bottoni Rapidi Assente/Cena inside Card */
 .btns { display: flex; gap: 6px; }
 .btns button {
     flex: 1;
@@ -155,10 +404,8 @@ header button:hover {
     cursor: pointer;
     transition: all var(--t);
 }
-.btns button:hover {
-    background: var(--surface-3);
-    color: var(--text);
-}
+.btns button:hover { background: var(--surface-3); color: var(--text); }
+
 .active-ass {
     background: var(--absent) !important;
     color: white !important;
@@ -172,6 +419,7 @@ header button:hover {
     box-shadow: 0 2px 10px var(--accent-dim) !important;
 }
 
+/* Bottone Switch Turno Circolare */
 .btn-switch {
     background: var(--surface-2);
     border: 1px solid var(--border);
@@ -193,24 +441,116 @@ header button:hover {
     box-shadow: 0 2px 10px var(--switched-dim) !important;
 }
 
-#connection-status {
-    font-size: 0.68rem;
-    padding: 5px 12px;
-    border-radius: 20px;
-    background: var(--ok-dim);
-    color: var(--ok);
-    border: 1px solid var(--ok-dim);
-}
-.permesso-tag {
-    color: var(--pp);
-    font-size: 0.65rem;
-    font-weight: 700;
-}
+/* Badge Connessione Cloud */
+.status-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.7rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.03em; }
+.status-badge.connected { background: var(--ok-dim); color: var(--ok); border: 1px solid rgba(22,163,74,0.25); }
+.status-badge.disconnected { background: var(--absent-dim); color: var(--absent); border: 1px solid rgba(220,38,38,0.25); }
+.permesso-tag { color: var(--pp); font-size: 0.65rem; font-weight: 700; }
 
+/* ============================================================================
+   PANNELLO LATERALE (GESTIONE PERMESSI E ASSENZE) — PARTE 4 JS
+   ============================================================================ */
+#sidePanel {
+    background: var(--bg-2);
+    border-left: 1px solid var(--border-2);
+    box-shadow: -8px 0 40px rgba(0,0,0,0.15);
+    color: var(--text);
+}
+#sidePanel h3 {
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-top: 12px;
+}
+#sidePanel select, #sidePanel input[type="date"] {
+    background: var(--bg-3);
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 8px 10px;
+    font-family: var(--font);
+    font-size: 0.82rem;
+    width: 100%;
+    outline: none;
+}
+#sidePanel select:focus, #sidePanel input[type="date"]:focus { border-color: var(--accent); }
+#sidePanel hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ============================================================================
+   SCHERMATA DI BLOCKOUT / LOGIN FIREBASE
+   ============================================================================ */
+#loginScreen { background: var(--bg); }
+#loginScreen > div {
+    background: var(--surface);
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    color: var(--text);
+}
+#loginScreen h2 { color: var(--text); }
+#loginScreen input {
+    background: var(--bg-3);
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 12px;
+    font-family: var(--font);
+}
+#loginScreen input::placeholder { color: var(--text-muted); }
+#loginScreen button {
+    background: var(--accent);
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    transition: all var(--t);
+    color: white;
+}
+#loginScreen button:hover { filter: brightness(1.05); transform: translateY(-1px); }
+
+/* ============================================================================
+   ANIMAZIONI E INTERFACCIA FLUIDA
+   ============================================================================ */
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ============================================================================
+   RESPONSIVE DESIGN (MEDIA QUERIES)
+   ============================================================================ */
 @media (max-width: 900px) {
     #listaStudenti { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
-@media (max-width: 600px) {
+
+@media (max-width: 768px) { /* Corretto il bug del precedente "68px" */
+    .container { padding: 14px; }
+    header { padding: 10px 16px; flex-direction: column; text-align: center; gap: 10px; }
     #listaStudenti { grid-template-columns: 1fr 1fr; }
-    header { flex-direction: column; text-align: center; gap: 10px; }
+    .toolbar { gap: 8px; }
 }
+
+/* ============================================================================
+   REGOLE DI STAMPA UFFICIALI (REPORTISTICA CONVITTO)
+   ============================================================================ */
+@media print {
+    .no-print, .print-bar, .toolbar, header, .note-toolbar-container, #sidePanel, #loginScreen { 
+        display: none !important; 
+    }
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    .print-logo { 
+        display: block !important; 
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 44px;
+        width: auto;
+        object-fit: contain;
+    }
+}
+.print-logo { display: none; }
