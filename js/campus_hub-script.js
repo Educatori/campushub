@@ -1233,3 +1233,47 @@ function logout() {
 window.addEventListener('DOMContentLoaded', () => {
     updateClock();
 });
+
+/**
+ * Svuota i dati giornalieri o completi sul Database Firebase
+ * @param {string} tipo - 'soloManuali' (Reset Day) o 'completo' (Reset Full)
+ */
+function resetDati(tipo) {
+    // Chiediamo conferma all'operatore per evitare disastri
+    const messaggio = tipo === 'completo' ? "⚠️ ATTENZIONE: Stai per eseguire un RESET COMPLETO. Questo cancellerà TUTTI i dati storici, le assenze e i permessi inseriti. Vuoi continuare?"
+        : "🗑️ Confermi il Reset Giornaliero? Verranno azzerati gli ingressi/uscite manuali di oggi.";
+        
+    if (!confirm(messaggio)) return;
+
+    // Riferimento al database (usando la variabile globale configurata)
+    if (typeof database === "undefined" || !database) {
+        alert("❌ Errore: Connessione al database non disponibile.");
+        return;
+    }
+
+    if (tipo === 'soloManuali') {
+        // RESET GIORNALIERO: Puliamo solo gli stati transitori dei ragazzi di oggi
+        database.ref('presenze_oggi').remove()
+            .then(() => {
+                alert("✅ Reset Giornaliero completato con successo!");
+                if (typeof init === "function") init(); // Ricarica la logica se esiste
+                else location.reload();
+            })
+            .catch(error => console.error("Errore durante il reset giornaliero:", error));
+
+    } else if (tipo === 'completo') {
+        // RESET COMPLETO: Azzeriamo tutto (storico, note, assenze)
+        const updates = {
+            'presenze_oggi': null,
+            'dailyNotes': "",
+            'assenze_programmate': null
+        };
+        
+        database.ref().update(updates)
+            .then(() => {
+                alert("🚨 Reset Completo eseguito! Il sistema è stato riportato allo stato iniziale.");
+                location.reload(); // Ricarica la pagina per ripulire il DOM
+            })
+            .catch(error => console.error("Errore durante il reset completo:", error));
+    }
+}
