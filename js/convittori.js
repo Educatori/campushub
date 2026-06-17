@@ -1,30 +1,44 @@
-// CONVITTORI.JS
-// Costruisce l'array studenticonvittori a partire da tuttiStudenti (definito in studenti_25-26.js)
-// Vengono inclusi solo gli studenti con room numerica compresa tra 101 e 221 (convittori)
+/* ==========================================================================
+   CONVITTORI.JS — Ottimizzato per Firebase Realtime Database
+   ========================================================================== */
 
-(function() {
-    // Verifica che l'array globale tuttiStudenti esista
-    if (typeof tuttiStudenti === 'undefined') {
-        console.error("Errore: manca l'array 'tuttiStudenti'. Assicurati di aver incluso studenti_25-26.js PRIMA di convittori.js");
-        window.studenticonvittori = [];
-        return;
+function elaboraAnagraficaDaFirebase(datiInArrivo) {
+    // 1. Fallback di sicurezza se i dati del database non sono validi o sono vuoti
+    let listaGrezza = [];
+    if (datiInArrivo) {
+        if (Array.isArray(datiInArrivo)) {
+            listaGrezza = datiInArrivo;
+        } else if (typeof datiInArrivo === 'object') {
+            listaGrezza = Object.values(datiInArrivo);
+        }
     }
 
-    // Filtra i convittori: room tra 101 e 221 (inclusi)
-    const convittori = tuttiStudenti.filter(s => {
+    if (listaGrezza.length === 0) {
+        console.warn("⚠️ Nessun record ricevuto da Firebase per l'anagrafica.");
+        window.studenticonvittori = [];
+        return [];
+    }
+
+    // 2. Applica il filtro storico: include solo i residenti reali (stanze numeriche 101-221)
+    const convittoriFiltrati = listaGrezza.filter(s => {
+        if (!s || !s.room) return false;
         const roomNum = parseInt(s.room, 10);
         return !isNaN(roomNum) && roomNum >= 101 && roomNum <= 221;
     });
 
-    // Mappa i campi per mantenerli compatibili con gli script esistenti
-    window.studenticonvittori = convittori.map(s => ({
-        cognome: s.cognome,
-        nome: s.nome,
-        classe: s.classe,
-        room: s.room,
-        gruppo: s.gruppo || "",
-        percorso: s.percorso || ""
+    // 3. Mappa e normalizza i campi sul perimetro globale per garantire retrocompatibilità
+    window.studenticonvittori = convittoriFiltrati.map(s => ({
+        cognome: (s.cognome || "").trim(),
+        nome: (s.nome || "").trim(),
+        classe: (s.classe || "").trim(),
+        room: s.room.toString(),
+        gruppo: (s.gruppo || "").trim(),
+        percorso: (s.percorso || "").trim()
     }));
 
-    console.log(`Convittori caricati: ${window.studenticonvittori.length}`);
-})();
+    // Ordina alfabeticamente per cognome per facilitare il rendering visivo dell'appello
+    window.studenticonvittori.sort((a, b) => a.cognome.localeCompare(b.cognome));
+
+    console.log(`🚀 [Anagrafica Sync] Convittori attivi filtrati dal Cloud: ${window.studenticonvittori.length}`);
+    return window.studenticonvittori;
+}
