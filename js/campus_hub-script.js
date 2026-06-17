@@ -1167,7 +1167,7 @@ function cancellaNote() {
 }
 
 // --- AUTHENTICATION & INITIALIZATION ---
-const auth = typeof firebase !== "undefined" ? firebase.auth() : null;
+// const auth = typeof firebase !== "undefined" ? firebase.auth() : null;
 
 function login() {
     const emailField = document.getElementById("loginEmail");
