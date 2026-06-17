@@ -6,18 +6,20 @@ function salvaDatiLocale() {
     
     document.querySelectorAll(".student-row").forEach((r) => {
         const cognome = r.dataset.cognome;
-        statoStudenti[cognome] = {
-            esce: r.querySelector(".in-u").value,
-            entra: r.querySelector(".in-i").value,
-            assente: r.classList.contains("assente"),
-            dinnerno: r.dataset.dinnerno
-        };
+        if (cognome) { // Controllo di sicurezza sul dataset
+            statoStudenti[cognome] = {
+                esce: r.querySelector(".in-u") ? r.querySelector(".in-u").value : "",
+                entra: r.querySelector(".in-i") ? r.querySelector(".in-i").value : "",
+                assente: r.classList.contains("assente"),
+                dinnerno: r.dataset.dinnerno || "0"
+            };
+        }
     });
 
     // 2. Prepariamo l'oggetto globale da salvare
     const pacchettoDati = {
         stato_giornaliero: statoStudenti,
-        cambi_turno_manuali: cambiTurnoManuali,
+        cambi_turno_manuali: typeof cambiTurnoManuali !== "undefined" ? cambiTurnoManuali : {},
         note_giornaliere: document.getElementById("dailyNotes") ? document.getElementById("dailyNotes").value : ""
     };
 
@@ -25,7 +27,7 @@ function salvaDatiLocale() {
     localStorage.setItem("campus_hub_local_backup", JSON.stringify(pacchettoDati));
 
     // 4. Inviamo i dati a Firebase (se l'amministratore è autenticato)
-    if (firebase.auth().currentUser) {
+    if (typeof firebase !== "undefined" && firebase.auth().currentUser) {
         firebase.database().ref('archivio_campus/stato_corrente').set(pacchettoDati)
             .then(() => console.log("☁️ Cloud sincronizzato con successo!"))
             .catch((error) => console.error("❌ Errore di sincronizzazione cloud:", error));
@@ -33,16 +35,15 @@ function salvaDatiLocale() {
 }
 
 function caricaDatiLocale() {
-    // Questa funzione ora riceverà i dati direttamente dal listener di Firebase 
-    // sviluppato nel file `firebase-cruscotto-sync.js` (passo precedente).
-    // Non leggerà più dal localStorage del singolo PC, rendendo il pannello sincrono su più dispositivi.
-    
     if (window.datiRicevutiDalCloud && window.datiRicevutiDalCloud.stato_corrente) {
         const stato = window.datiRicevutiDalCloud.stato_corrente.stato_giornaliero || {};
-        cambiTurnoManuali = window.datiRicevutiDalCloud.stato_corrente.cambi_turno_manuali || {};
+        if (typeof cambiTurnoManuali !== "undefined") {
+            cambiTurnoManuali = window.datiRicevutiDalCloud.stato_corrente.cambi_turno_manuali || {};
+        }
         
-        if (document.getElementById("dailyNotes") && window.datiRicevutiDalCloud.stato_corrente.note_giornaliere) {
-            document.getElementById("dailyNotes").value = window.datiRicevutiDalCloud.stato_corrente.note_giornaliere;
+        const dailyNotesEl = document.getElementById("dailyNotes");
+        if (dailyNotesEl && window.datiRicevutiDalCloud.stato_corrente.note_giornaliere) {
+            dailyNotesEl.value = window.datiRicevutiDalCloud.stato_corrente.note_giornaliere;
         }
 
         document.querySelectorAll(".student-row").forEach((r) => {
@@ -50,24 +51,28 @@ function caricaDatiLocale() {
             const datiStudente = stato[cognome];
 
             if (datiStudente) {
-                r.querySelector(".in-u").value = datiStudente.esce || "";
-                r.querySelector(".in-i").value = datiStudente.entra || "";
+                const inU = r.querySelector(".in-u");
+                const inI = r.querySelector(".in-i");
+                if (inU) inU.value = datiStudente.esce || "";
+                if (inI) inI.value = datiStudente.entra || "";
                 
+                const btnAss = r.querySelector(".btn-ass");
                 if (datiStudente.assente) {
                     r.classList.add("assente");
-                    r.querySelector(".btn-ass").classList.add("active-ass");
+                    if (btnAss) btnAss.classList.add("active-ass");
                 } else {
                     r.classList.remove("assente");
-                    r.querySelector(".btn-ass").classList.remove("active-ass");
+                    if (btnAss) btnAss.classList.remove("active-ass");
                 }
 
                 r.dataset.dinnerno = datiStudente.dinnerno || "0";
+                const btnDin = r.querySelector(".btn-din");
                 if (datiStudente.dinnerno === "1") {
                     r.classList.add("dinner-no");
-                    r.querySelector(".btn-din").classList.add("active-din");
+                    if (btnDin) btnDin.classList.add("active-din");
                 } else {
                     r.classList.remove("dinner-no");
-                    r.querySelector(".btn-din").classList.remove("active-din");
+                    if (btnDin) btnDin.classList.remove("active-din");
                 }
             }
         });
@@ -77,15 +82,17 @@ function caricaDatiLocale() {
 // --- PRESENZE dinner (Ottimizzato Firebase) ---
 function generaPopUpStampaPresDin() {
     const oggi = new Date();
-    const dataTestuale = document.getElementById("todayDate").innerText;
+    // Corretto con optional chaining per evitare crash
+    const dataTestuale = document.getElementById("todayDate")?.innerText || oggi.toLocaleDateString("it-IT");
     const dataOggi = oggi.toLocaleDateString("it-IT");
     const oraEsatta = oggi.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
-    // FALLBACK SINCRO CLOUD: Se esiste la lista aggiornata da Firebase, usiamo quella
+    // Sanata la gestione delle variabili
+    let sorgenteStudenti = [];
     if (typeof window.studenticonvittori !== "undefined") {
-        var sorgenteStudenti = window.studenticonvittori;
+        sorgenteStudenti = window.studenticonvittori;
     } else if (typeof studenticonvittori !== "undefined") {
-        var sorgenteStudenti = studenticonvittori;
+        sorgenteStudenti = studenticonvittori;
     } else {
         console.error("Errore: database studenti convittori non disponibile.");
         alert("Errore: Nessun dato disponibile. Effettua il login o attendi la sincronizzazione.");
@@ -93,7 +100,7 @@ function generaPopUpStampaPresDin() {
     }
 
     function parseClasse(classe) {
-        if (!classe) return { num: 999, letter: "Z" };
+        if (!classe) return { num: 999, lettera: "Z" }; // Corretto typos letter -> lettera
         const match = classe.toString().toUpperCase().match(/^(\d+)([A-Z]?)$/);
         return match ? { num: parseInt(match[1]), lettera: match[2] || "A" } : { num: 999, lettera: "Z" };
     }
@@ -109,7 +116,6 @@ function generaPopUpStampaPresDin() {
     const turno1 = [];
     const turno2 = [];
 
-    // Usiamo la sorgente dinamica (Firebase o locale)
     sorgenteStudenti.forEach((s) => {
         if (!s.cognome) return;
         let classe = (s.classe || "").toString().toUpperCase();
@@ -132,12 +138,14 @@ function generaPopUpStampaPresDin() {
 
         studentiInTurno.forEach((s, idx) => {
             const colIdx = Math.floor(idx / itemsPerColonna);
+            if (colIdx > 2) return;
             let classeDisplay = (s.classe || "").toString().toUpperCase();
 
+            // Corretto &nbsp senza punto e virgola
             colonneHtml[colIdx] += `
                 <div class="d-row">
                     <div class="d-cell d-class"><b>${classeDisplay}</b></div>
-                    <div class="d-cell d-name"><b>${s.cognome}</b>&nbsp${s.nome || ""}</div>
+                    <div class="d-cell d-name"><b>${s.cognome}</b>&nbsp;${s.nome || ""}</div>
                     <div class="d-cell d-day"></div>
                     <div class="d-cell d-day"></div>
                     <div class="d-cell d-day"></div>
@@ -218,11 +226,11 @@ function generaPopUpStampaTransfer() {
     const dataOggi = oggi.toLocaleDateString("it-IT");
     const oraEsatta = oggi.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
-    // FALLBACK SINCRO CLOUD
+    let sorgenteTutti = [];
     if (typeof window.tuttiStudenti !== "undefined") {
-        var sorgenteTutti = window.tuttiStudenti;
+        sorgenteTutti = window.tuttiStudenti;
     } else if (typeof tuttiStudenti !== "undefined") {
-        var sorgenteTutti = tuttiStudenti;
+        sorgenteTutti = tuttiStudenti;
     } else {
         console.error("Errore: database generale studenti non disponibile.");
         alert("Errore: Nessun dato disponibile. Sincronizzazione in corso...");
@@ -354,30 +362,28 @@ function generaPopUpStampaTransfer() {
 // --- POMERIGGIO BUS (Ottimizzato Firebase) ---
 function generaPopUpStampaBusPomeriggio() {
     const oggi = new Date();
-    const dataTestuale = document.getElementById("todayDate").innerText;
+    const dataTestuale = document.getElementById("todayDate")?.innerText || oggi.toLocaleDateString("it-IT");
     const dataOggi = oggi.toLocaleDateString("it-IT");
     const oraEsatta = oggi.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
-    // FALLBACK SINCRO CLOUD: Controllo reattivo della sorgente dati
+    let sorgenteStudenti = [];
     if (typeof window.studenticonvittori !== "undefined") {
-        var sorgenteStudenti = window.studenticonvittori;
+        sorgenteStudenti = window.studenticonvittori;
     } else if (typeof studenticonvittori !== "undefined") {
-        var sorgenteStudenti = studenticonvittori;
+        sorgenteStudenti = studenticonvittori;
     } else {
         console.error("Errore: database studenti convittori non definito.");
         alert("Errore: database studenti non caricato. Verifica la connessione a Firebase.");
         return;
     }
 
-    // 1. FILTRO: esclude 2A, 2B e classi con "P" e cognome vuoto
     const validi = sorgenteStudenti.filter((s) => {
-        if (!s.cognome) return false;
+        if (!s || !s.cognome || !s.classe) return false;
         const classe = s.classe.toUpperCase();
         const escluse = ["2A", "2B"];
         return !escluse.includes(classe) && !classe.includes("P");
     });
 
-    // 2. ORDINAMENTO NATURALE: Classe -> Gruppo -> Cognome
     validi.sort((a, b) => {
         const compClasse = a.classe.localeCompare(b.classe, undefined, { numeric: true });
         if (compClasse !== 0) return compClasse;
@@ -390,7 +396,6 @@ function generaPopUpStampaBusPomeriggio() {
         return a.cognome.localeCompare(b.cognome);
     });
 
-    // 3. COSTRUZIONE LISTA MISTA CON SEPARATORI
     const elementiFinali = [];
     let ultimaClasse = null;
 
@@ -402,13 +407,13 @@ function generaPopUpStampaBusPomeriggio() {
         ultimaClasse = studente.classe;
     });
 
-    // 4. DISTRIBUZIONE BILANCIATA NELLE 3 COLONNE
     const totaleElementi = elementiFinali.length;
-    const itemsPerColonna = Math.ceil(totaleElementi / 3);
+    const itemsPerColonna = Math.ceil(totaleElementi / 3) || 1;
     const colonneHtml = ["", "", ""];
 
     elementiFinali.forEach((elemento, idx) => {
         const colonnaIdx = Math.floor(idx / itemsPerColonna);
+        if (colonnaIdx > 2) return;
 
         if (elemento.type === "separator") {
             colonneHtml[colonnaIdx] += `<div class="class-separator"></div>`;
@@ -439,8 +444,9 @@ function generaPopUpStampaBusPomeriggio() {
             </div>`;
     });
 
-    // 5. GENERAZIONE POP-UP
     const popup = window.open("", "_blank", "width=1200,height=800");
+    if (!popup) { alert("Pop-up bloccato dal browser!"); return; }
+    
     popup.document.write(`
         <html><head><title>Appello Bus Pomeriggio Settimanale</title><style>
             @page { size: A4 landscape; margin: 0.4cm; }
@@ -492,19 +498,18 @@ function generaPopUpStampaBusPomeriggio() {
     popup.document.close();
 }
 
-// --- USCITE (Ottimizzato Firebase e chiuso correttamente) ---
+// --- REGISTRO FIRME USCITE DIURNE ---
 function generaPopUpStampaUscite() {
-    // FALLBACK SINCRO CLOUD
+    let sorgenteStudenti = [];
     if (typeof window.studenticonvittori !== "undefined") {
-        var sorgenteStudenti = window.studenticonvittori;
+        sorgenteStudenti = window.studenticonvittori;
     } else if (typeof studenticonvittori !== "undefined") {
-        var sorgenteStudenti = studenticonvittori;
+        sorgenteStudenti = studenticonvittori;
     } else {
         alert("Errore: database studenticonvittori non trovato!");
         return;
     }
 
-    // 2. FILTRO E ORDINAMENTO
     const listaConvittori = sorgenteStudenti
         .filter((s) => s && s.cognome && s.room && s.room !== "-")
         .sort((a, b) => a.cognome.localeCompare(b.cognome));
@@ -514,13 +519,13 @@ function generaPopUpStampaUscite() {
         return;
     }
 
-    // 3. RIPARTIZIONE BILANCIATA NELLE 2 COLONNE
     const totaleElementi = listaConvittori.length;
-    const itemsPerCol = Math.ceil(totaleElementi / 2);
+    const itemsPerCol = Math.ceil(totaleElementi / 2) || 1;
     const colonneHtml = ["", ""];
 
     listaConvittori.forEach((s, index) => {
         const colIndex = Math.floor(index / itemsPerCol);
+        if (colIndex > 1) return;
         const infoClasse = [s.classe, s.percorso, s.gruppo].filter(Boolean).join(" ") || "-";
 
         colonneHtml[colIndex] += `
@@ -533,35 +538,13 @@ function generaPopUpStampaUscite() {
             </tr>`;
     });
 
-    function generaLayoutContenuto() {
-        return `
-            <div class="grid-container">
-                ${colonneHtml.map((htmlDest) => `
-                    <div class="colonna">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th style="width: 35px;">Room</th>
-                                    <th style="width: 65px;">Classe</th>
-                                    <th style="width: 160px;">Cognome e Nome</th>
-                                    <th>Uscita</th>
-                                    <th>Rientro</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${htmlDest}
-                            </tbody>
-                        </table>
-                    </div>`).join("")}
-            </div>`;
-    }
-
-    // 4. GENERAZIONE POP-UP E INTERFACCIA COMPLETA
     const oggi = new Date();
     const dataOggi = oggi.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
     const oraEsatta = oggi.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
     const popup = window.open("", "_blank", "width=1200,height=800");
+    if (!popup) { alert("Pop-up bloccato dal browser!"); return; }
+
     popup.document.write(`
         <html><head><title>Registro Firme Uscite - ${dataOggi}</title><style>
             @page { size: A4 portrait; margin: 0.4cm; }
@@ -587,80 +570,271 @@ function generaPopUpStampaUscite() {
             <div class="no-print">
                 <button onclick="window.print()" style="padding:6px 30px; background:#27ae60; color:white; font-weight:bold; border-radius:20px; border:none; cursor:pointer;">•STAMPA REGISTRO</button>
             </div>
-            ${generaLayoutContenuto()}
+            <div class="grid-container">
+                ${colonneHtml.map((htmlDest) => `
+                    <div class="colonna">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 35px;">Room</th>
+                                    <th style="width: 65px;">Classe</th>
+                                    <th style="width: 160px;">Cognome e Nome</th>
+                                    <th>Uscita</th>
+                                    <th>Rientro</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${htmlDest}
+                            </tbody>
+                        </table>
+                    </div>`).join("")}
+            </div>
         </body></html>`);
     popup.document.close();
 }
 
-// --- PROSEGUIMENTO PARTE 4 (Chiusura Registro Uscite Convittori) ---
+// --- REGISTRO REGISTRO USCITE CONVITTORI (Fronte/Retro 17-18) [COMPLETATA ED OTTIMIZZATA] ---
+function generaPopUpStampaRegistroUnione() {
+    let sorgenteStudenti = [];
+    if (typeof window.studenticonvittori !== "undefined") {
+        sorgenteStudenti = window.studenticonvittori;
+    } else if (typeof studenticonvittori !== "undefined") {
+        sorgenteStudenti = studenticonvittori;
+    } else {
+        alert("Errore: database studenticonvittori non trovato!");
+        return;
+    }
+
+    const listaConvittori = sorgenteStudenti
+        .filter((s) => s && s.cognome && s.room && s.room !== "-")
+        .sort((a, b) => a.cognome.localeCompare(b.cognome));
+
+    if (listaConvittori.length === 0) {
+        alert("Nessun convittore valido trovato.");
+        return;
+    }
+
+    const totaleElementi = listaConvittori.length;
+    const itemsPerCol = Math.ceil(totaleElementi / 2) || 1;
+    const colonneHtml = ["", ""];
+
+    listaConvittori.forEach((s, index) => {
+        const colIndex = Math.floor(index / itemsPerCol);
+        if (colIndex > 1) return;
+        const infoClasse = [s.classe, s.percorso, s.gruppo].filter(Boolean).join(" ") || "-";
+
+        colonneHtml[colIndex] += `
+            <tr>
+                <td class="t-room">${s.room}</td>
+                <td class="t-class">${infoClasse}</td>
+                <td class="t-name"><b>${s.cognome}</b>&nbsp;${s.nome || ""}</td>
+                <td></td>
+                <td></td>
+            </tr>`;
+    });
+
+    const oggi = new Date();
+    const dataOggi = oggi.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
     const popup = window.open("", "_blank", "width=1200,height=800");
+    if (!popup) { alert("Pop-up bloccato dal browser!"); return; }
+
     popup.document.write(`
-        <html><head><title>Registro Uscite Convittori - ${oggi.toLocaleDateString("it-IT")}</title><style>
+        <html><head><title>Registro Unione Uscite</title><style>
+            @page { size: A4 portrait; margin: 0.4cm; }
+            body { font-family: -apple-system, sans-serif; margin: 0; padding: 5px; color: #000; }
+            h2 { text-align: center; text-transform: uppercase; margin: 5px 0; font-size: 1.1rem; }
+            .grid-container { display: flex; gap: 10px; justify-content: space-between; }
+            .colonna { width: 49%; }
+            table { width: 100%; border-collapse: collapse; font-size: 0.65rem; border: 1.5px solid #000; }
+            th { background: #34495e; color: white; padding: 3px; border: 1px solid #000; text-transform: uppercase; }
+            td { padding: 3px; border: 1px solid #555; height: 18px; }
+            .t-room { text-align: center; font-weight: bold; background: #f5f5f5; width: 30px; }
+            .t-class { text-align: center; width: 55px; }
+            .t-name { text-transform: uppercase; }
+            .no-print { text-align: center; margin-bottom: 10px; }
+            @media print { .no-print { display: none; } }
+        </style></head><body>
+            <h2>REGISTRO UNIONE USCITE CONVITTORI</h2>
+            <div style="text-align:center; font-size:0.85rem; margin-bottom:10px;">Data: ${dataOggi}</div>
+            <div class="no-print">
+                <button onclick="window.print()" style="padding:6px 25px; background:#2980b9; color:white; font-weight:bold; border:none; cursor:pointer; border-radius:4px;">STAMPA REGISTRO</button>
+            </div>
+            <div class="grid-container">
+                ${colonneHtml.map((htmlDest) => `
+                    <div class="colonna">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width:30px;">Cam.</th>
+                                    <th style="width:55px;">Classe</th>
+                                    <th>Cognome e Nome</th>
+                                    <th style="width:45px;">Uscita</th>
+                                    <th style="width:45px;">Rientro</th>
+                                </tr>
+                            </thead>
+                            <tbody>${htmlDest}</tbody>
+                        </table>
+                    </div>`).join("")}
+            </div>
+        </body></html>`);
+    popup.document.close();
+}
+
+colonneHtml[colIndex] += `
+            <tr>
+                <td class="t-cell t-room">${s.room}</td>
+                <td class="t-cell t-class">${infoClasse}</td>
+                <td class="t-cell t-name"><b>${s.cognome}</b>&nbsp;${s.nome || ""}</td>
+                <td class="t-cell t-sign"></td>
+                <td class="t-cell t-sign"></td>
+            </tr>`;
+    });
+
+    const oggi = new Date();
+    const dataOggi = oggi.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const oraEsatta = oggi.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+
+    const popup = window.open("", "_blank", "width=1200,height=800");
+    if (!popup) { alert("Pop-up bloccato dal browser!"); return; }
+
+    popup.document.write(`
+        <html><head><title>Registro Firme Uscite - ${dataOggi}</title><style>
+            @page { size: A4 portrait; margin: 0.4cm; }
+            body { font-family: -apple-system, sans-serif; margin: 0; padding: 5px; color: #000; line-height: 1.2; }
+            h2 { text-align: center; text-transform: uppercase; margin: 5px 0 2px 0; font-size: 1.2rem; }
+            .date-subtitle { text-align: center; font-size: 0.9rem; margin-bottom: 15px; color: #333; text-transform: capitalize; }
+            .timestamp { position: absolute; top: 5px; right: 10px; font-size: 0.60rem; color: #777; }
+            .grid-container { display: flex; gap: 15px; justify-content: space-between; align-items: flex-start; }
+            .colonna { width: 49%; }
+            table { width: 100%; border-collapse: collapse; font-size: 0.68rem; border: 1.5px solid #000; }
+            th { background: #2c3e50; color: white; padding: 4px; text-transform: uppercase; font-size: 0.65rem; border: 1px solid #000; }
+            td { padding: 3px 5px; border: 1px solid #444; height: 20px; box-sizing: border-box; }
+            .t-room { text-align: center; font-weight: bold; background: #f5f5f5; width: 35px; }
+            .t-class { text-align: center; width: 65px; color: #555; }
+            .t-name { text-transform: uppercase; width: 160px; }
+            .t-sign { background: #ffffff; }
+            .no-print { text-align: center; margin-bottom: 12px; }
+            @media print { .no-print { display: none; } }
+        </style></head><body>
+            <div class="timestamp">Generato il ${oggi.toLocaleDateString("it-IT")} alle ${oraEsatta}</div>
+            <h2>REGISTRO FIRME USCITE DIURNE</h2>
+            <div class="date-subtitle">${dataOggi}</div>
+            <div class="no-print">
+                <button onclick="window.print()" style="padding:6px 30px; background:#27ae60; color:white; font-weight:bold; border-radius:20px; border:none; cursor:pointer;">•STAMPA REGISTRO</button>
+            </div>
+            <div class="grid-container">
+                ${colonneHtml.map((htmlDest) => `
+                    <div class="colonna">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 35px;">Room</th>
+                                    <th style="width: 65px;">Classe</th>
+                                    <th style="width: 160px;">Cognome e Nome</th>
+                                    <th>Uscita</th>
+                                    <th>Rientro</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${htmlDest}
+                            </tbody>
+                        </table>
+                    </div>`).join("")}
+            </div>
+        </body></html>`);
+    popup.document.close();
+}
+
+// --- REGISTRO REGISTRO USCITE CONVITTORI (Fronte/Retro 17-18) ---
+function generaPopUpStampaRegistroUnione() {
+    let sorgenteStudenti = [];
+    if (typeof window.studenticonvittori !== "undefined") {
+        sorgenteStudenti = window.studenticonvittori;
+    } else if (typeof studenticonvittori !== "undefined") {
+        sorgenteStudenti = studenticonvittori;
+    } else {
+        alert("Errore: database studenticonvittori non trovato!");
+        return;
+    }
+
+    const listaConvittori = sorgenteStudenti
+        .filter((s) => s && s.cognome && s.room && s.room !== "-")
+        .sort((a, b) => a.cognome.localeCompare(b.cognome));
+
+    const totaleElementi = listaConvittori.length;
+    const itemsPerCol = Math.ceil(totaleElementi / 2) || 1;
+    const colonneHtml = ["", ""];
+
+    listaConvittori.forEach((s, index) => {
+        const colIndex = Math.floor(index / itemsPerCol);
+        if (colIndex > 1) return;
+        const infoClasse = [s.classe, s.percorso, s.gruppo].filter(Boolean).join(" ") || "-";
+
+        colonneHtml[colIndex] += `
+            <tr>
+                <td class="t-cell t-room">${s.room}</td>
+                <td class="t-cell t-class">${infoClasse}</td>
+                <td class="t-cell t-name"><b>${s.cognome}</b>&nbsp;${s.nome || ""}</td>
+                <td class="t-cell t-sign"></td>
+                <td class="t-cell t-sign"></td>
+            </tr>`;
+    });
+
+    const oggi = new Date();
+    const dataOggi = oggi.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+    const popup = window.open("", "_blank", "width=1200,height=800");
+    if (!popup) { alert("Pop-up bloccato dal browser!"); return; }
+
+    popup.document.write(`
+        <html><head><title>Registro Uscite Convittori - 17/18</title><style>
             @page { size: A4 portrait; margin: 0.3cm; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; color: #000; line-height: 1.1; }
-            
+            body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 0; color: #000; line-height: 1.1; }
             .page-block { page-break-after: always; position: relative; }
             .page-block:last-child { page-break-after: avoid; }
-            
             .no-print-header { text-align: center; margin-top: 5px; }
             h2 { text-transform: uppercase; margin: 2px 0; font-size: 1.1rem; letter-spacing: 1px; text-align: center; }
             .date-subtitle { font-size: 0.8rem; margin-bottom: 5px; color: #333; font-weight: bold; text-transform: uppercase; text-align: center; }
             .side-indicator { position: absolute; top: 2px; right: 5px; font-size: 0.6rem; font-weight: bold; background: #ddd; padding: 1px 4px; border-radius: 3px; text-transform: uppercase; }
-            
             .grid-container { display: flex; gap: 10px; justify-content: space-between; }
-            .colonna { width: 49.3%; display: flex; flex-direction: column; }
-            
-            table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1.5px solid #000; }
+            .colonna { width: 49.3%; }
+            table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; }
             th { background: #34495e; color: white; font-weight: bold; font-size: 0.6rem; text-transform: uppercase; padding: 3px 2px; border: 1px solid #000; text-align: center; }
-            
-            .t-cell { padding: 1px 3px; font-size: 0.62rem; border-right: 1px solid #000; border-bottom: 1px solid #000; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; height: 14px; }
-            .t-cell:last-child { border-right: none; }
-            
+            .t-cell { padding: 1px 3px; font-size: 0.62rem; border-right: 1px solid #000; border-bottom: 1px solid #000; height: 14px; }
             .t-room { width: 25px; text-align: center; font-weight: bold; background: #f9f9f9; }
-            .t-class { width: 55px; font-size: 0.58rem; text-align: center; color: #222; }
-            .t-name { width: 140px; text-transform: uppercase; text-align: left; }
-            .t-sign { background: #fff; }
-            
+            .t-class { width: 55px; text-align: center; color: #222; }
+            .t-name { text-transform: uppercase; }
             .no-print { text-align: center; margin: 10px 0; }
-            
             @media print { 
                 .no-print, .no-print-header, .side-indicator { display: none !important; }
-                .page-block { min-height: auto; }
             }
         </style></head><body>
-            
             <div class="no-print">
-                <button onclick="window.print()" style="padding:8px 35px; background:#27ae60; color:white; font-weight:bold; border-radius:20px; border:none; cursor:pointer; font-size:0.9rem; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-                    •STAMPA
-                </button>
+                <button onclick="window.print()" style="padding:8px 35px; background:#27ae60; color:white; font-weight:bold; border-radius:20px; border:none; cursor:pointer; font-size:0.9rem;">•STAMPA ACCORPATO</button>
             </div>
-
             <div class="page-block">
                 <div class="side-indicator">Fronte</div>
                 <h2>ORA LIBERA 17/18 — ORA DI UNIONE</h2>
-                <div class="no-print-header">
-                    <div class="date-subtitle">${dataOggi}</div>
+                <div class="date-subtitle">${dataOggi}</div>
+                <div class="grid-container">
+                    ${colonneHtml.map(html => `<div class="colonna"><table><thead><tr><th style="width:25px;">Rm</th><th style="width:55px;">Classe</th><th>Cognome e Nome</th><th style="width:50px;">Uscita</th><th style="width:50px;">Rientro</th></tr></thead><tbody>${html}</tbody></table></div>`).join("")}
                 </div>
-                ${generaLayoutContenuto()}
             </div>
-
             <div class="page-block">
                 <div class="side-indicator">Retro</div>
                 <h2>ORA LIBERA 17/18 — ORA DI UNIONE</h2>
-                <div class="no-print-header">
-                    <div class="date-subtitle">${dataOggi}</div>
+                <div class="date-subtitle">${dataOggi}</div>
+                <div class="grid-container">
+                    ${colonneHtml.map(html => `<div class="colonna"><table><thead><tr><th style="width:25px;">Rm</th><th style="width:55px;">Classe</th><th>Cognome e Nome</th><th style="width:50px;">Uscita</th><th style="width:50px;">Rientro</th></tr></thead><tbody>${html}</tbody></table></div>`).join("")}
                 </div>
-                ${generaLayoutContenuto()}
             </div>
-
-        </body></html>
-    `);
+        </body></html>`);
     popup.document.close();
 }
 
 // --- ROOMING LIST ---
 function generaPopUpStampaRooming() {
-    // 1. DATI EXTRA E VERIFICA DATABASE CLOUD
     const extra = [
         { cognome: "EDUCATORI", nome: "", classe: "", gruppo: "", room: "112", percorso: "" },
         { cognome: "", nome: "", classe: "Foresteria", gruppo: "", room: "124", percorso: "" },
@@ -682,7 +856,6 @@ function generaPopUpStampaRooming() {
     const tuttiIPartecipanti = [...extra, ...listaDalDatabase];
     const stanze = {};
 
-    // 2. RAGGRUPPAMENTO PER STANZA
     tuttiIPartecipanti.forEach((s) => {
         if (!s.room || s.room === "-") return;
         if (!stanze[s.room]) stanze[s.room] = [];
@@ -691,7 +864,6 @@ function generaPopUpStampaRooming() {
 
     const numeriStanze = Object.keys(stanze).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
 
-    // Dividiamo le stanze per piano (Piano 1: 100-199 / Piano 2: >= 200)
     const stanzePiano1 = [];
     const stanzePiano2 = [];
 
@@ -706,7 +878,6 @@ function generaPopUpStampaRooming() {
         }
     });
 
-    // Funzione interna per generare i box HTML delle stanze
     function generaBoxStanze(listaStanzeDelPiano) {
         return listaStanzeDelPiano
             .map((num) => {
@@ -739,7 +910,6 @@ function generaPopUpStampaRooming() {
             .join("");
     }
 
-    // 3. GENERAZIONE POP-UP E INTERFACCIA
     const oggi = new Date();
     const dataOggi = oggi.toLocaleDateString("it-IT");
 
@@ -811,15 +981,12 @@ function verificaStudenteStandBy(r) {
     const giornoSettimana = new Date().getDay();
     const cognome = r.dataset.cognome;
     
-    // 1. Condizione Assente
     const condAssente = r.classList.contains("assente"); 
     
-    // 2. Condizione Ingresso NO
     const inputIngresso = r.querySelector(".in-i");
     const ingressoNormalizzato = inputIngresso ? inputIngresso.value.trim().toLowerCase() : "";
     const condIngressoNo = paroleNo.includes(ingressoNormalizzato);
     
-    // 3. Condizione Permesso Rientro NO
     let ppIn = "";
     if (typeof ORARI_PP !== "undefined" && ORARI_PP[cognome] && ORARI_PP[cognome][giornoSettimana]) {
         ppIn = ORARI_PP[cognome][giornoSettimana].in;
@@ -837,7 +1004,6 @@ function generaPopUpStampaConvitto() {
     const giornoSettimana = new Date().getDay();
     const camere = {};
 
-    // Sincronizzazione Cloud Sicura
     let dbStudenti = typeof window.studenticonvittori !== "undefined" ? window.studenticonvittori : (typeof studenticonvittori !== "undefined" ? studenticonvittori : []);
 
     document.querySelectorAll(".student-row").forEach((r) => {
@@ -850,7 +1016,6 @@ function generaPopUpStampaConvitto() {
             ppIn = ORARI_PP[cognome][giornoSettimana].in;
         }
 
-        // Optional Chaining per evitare crash se il database non ha ancora sincronizzato il record
         const sOriginale = dbStudenti.find((st) => st.cognome === cognome);
 
         if (!camere[room]) camere[room] = [];
@@ -945,7 +1110,42 @@ function generaPopUpStampaConvitto() {
     popup.document.close();
 }
 
+// ==========================================
 // --- MATTINO BUS (Inizio logica) ---
+// ==========================================
+
+function ottieniDatabaseStudenti() {
+    if (typeof window.studenticonvittori !== "undefined") return window.studenticonvittori;
+    if (typeof studenticonvittori !== "undefined") return studenticonvittori;
+    console.error("Errore: database studenticonvittori non definito.");
+    return null;
+}
+
+function filtraEOrdinaStudentiBus(db) {
+    if (!db || !Array.isArray(db)) return [];
+
+    // 1. FILTRO CLASSI ESCLUSE
+    const validi = db.filter((s) => {
+        if (!s || !s.cognome || !s.classe) return false;
+        const classe = s.classe.toUpperCase();
+        const escluse = ["2A", "2B"];
+        return !escluse.includes(classe) && !classe.includes("P");
+    });
+
+    // 2. SEPARAZIONE E ORDINAMENTO CORRETTO
+    const resto = validi.filter((s) => s.classe.toUpperCase() !== "5B");
+    const classe5B = validi.filter((s) => s.classe.toUpperCase() === "5B");
+
+    resto.sort((a, b) => a.cognome.localeCompare(b.cognome));
+    classe5B.sort((a, b) => {
+        const gA = a.gruppo || "";
+        const gB = b.gruppo || "";
+        return (gA + a.cognome).localeCompare(gB + b.cognome);
+    });
+
+    return [...resto, ...classe5B];
+}
+
 function generaPopUpStampaBus() {
     const oggi = new Date();
     const dataOggi = oggi.toLocaleDateString("it-IT");
@@ -955,41 +1155,13 @@ function generaPopUpStampaBus() {
     domani.setDate(oggi.getDate() + 1);
     const dataDomaniTestuale = domani.toLocaleDateString("it-IT", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    let sorgenteStudenti = [];
-    if (typeof window.studenticonvittori !== "undefined") {
-        sorgenteStudenti = window.studenticonvittori;
-    } else if (typeof studenticonvittori !== "undefined") {
-        sorgenteStudenti = studenticonvittori;
-    } else {
-        console.error("Errore: studenticonvittori non definito.");
+    const dbStudentiBus = ottieniDatabaseStudenti();
+    if (!dbStudentiBus) {
         alert("Errore: database studenti non caricato.");
         return;
     }
-    
-    // --- PROSEGUIMENTO PARTE 5 (Appello Bus Domattina e Bus Generico) ---
 
-    // 1. FILTRO CLASSI ESCLUSE CON CONTROLLO DI SICUREZZA
-    let dbStudentiBus = typeof window.studenticonvittori !== "undefined" ? window.studenticonvittori : (typeof studenticonvittori !== "undefined" ? studenticonvittori : []);
-
-    const validi = dbStudentiBus.filter((s) => {
-        if (!s || !s.cognome || !s.classe) return false;
-        const classe = s.classe.toUpperCase();
-        const escluse = ["2A", "2B"];
-        return !escluse.includes(classe) && !classe.includes("P");
-    });
-
-    // 2. SEPARAZIONE E ORDINAMENTO CORRETTO
-    const resto = validi.filter((s) => s.classe !== "5B");
-    const classe5B = validi.filter((s) => s.classe === "5B");
-
-    resto.sort((a, b) => a.cognome.localeCompare(b.cognome));
-    classe5B.sort((a, b) => {
-        const gA = a.gruppo || "";
-        const gB = b.gruppo || "";
-        return (gA + a.cognome).localeCompare(gB + b.cognome);
-    });
-
-    const listaFinale = [...resto, ...classe5B];
+    const listaFinale = filtraEOrdinaStudentiBus(dbStudentiBus);
 
     // 3. RIPARTIZIONE IN 3 COLONNE BILANCIATE
     const itemsPerCol = Math.ceil(listaFinale.length / 3);
@@ -1000,12 +1172,12 @@ function generaPopUpStampaBus() {
         const infoClasse = `${s.classe} ${s.percorso ? s.percorso : ""} ${s.gruppo ? "• " + s.gruppo : ""}`;
 
         let bgStyle = "";
-        if (s.classe === "5B") {
+        if (s.classe.toUpperCase() === "5B") {
             if (s.gruppo === "G1") bgStyle = "background-color: #e8f4fd;";
             if (s.gruppo === "G2") bgStyle = "background-color: #fef9e7;";
         }
 
-        // --- RECUPERO DELLO STAND-BY DAL DOM IN SICUREZZA (Escape Apostrofi/Spazi) ---
+        // --- RECUPERO DELLO STAND-BY DAL DOM IN SICUREZZA ---
         const cognomeEscaped = s.cognome.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
         const rigaElemento = document.querySelector(`.student-row[data-cognome="${cognomeEscaped}"]`);
         let visualizzaStandBy = "";
@@ -1037,36 +1209,26 @@ function generaPopUpStampaBus() {
             .timestamp { position: absolute; top: 5px; right: 10px; font-size: 0.6rem; color: #777; }
             .grid-container { display: flex; gap: 10px; justify-content: space-between; }
             .colonna { width: 32.5%; display: flex; flex-direction: column; }
-            
             .column-header { display: flex; background: #333; color: white; font-weight: bold; font-size: 0.6rem; text-transform: uppercase; border: 1px solid #000; height: 18px; }
-            
             .bus-row { display: flex; font-size: 0.68rem; border-left: 1px solid #000; border-right: 1px solid #000; border-bottom: 1px solid #000; align-items: stretch; page-break-inside: avoid; height: 22px; }
-            
             .b-cell, .h-cell { padding: 2px 2px; text-align: center; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; }
-            
             .b-room, .h-room { width: 25px; font-size: 0.58rem; }
             .b-room { border-right: 1px solid #ccc; font-weight: bold; background: #f5f5f5; }
             .h-room { border-right: 1px solid #555; }
-            
             .b-name, .h-name { width: 105px; text-align: left; justify-content: flex-start; padding-left: 4px; }
             .b-name { border-right: 1px solid #ccc; text-transform: uppercase; text-overflow: ellipsis; }
             .h-name { border-right: 1px solid #555; }
-            
             .b-class, .h-class { width: 65px; font-size: 0.55rem; }
             .b-class { border-right: 1px solid #ccc; }
             .h-class { border-right: 1px solid #555; }
-            
             .b-check, .h-check { width: 22px; }
             .b-check { border-right: 1px solid #ccc; }
             .h-check { border-right: 1px solid #555; }
-            
             .b-standby, .h-standby { width: 25px; border-right: 1px solid #ccc; }
             .h-standby { border-right: 1px solid #555; }
-
             .b-notes, .h-notes { flex-grow: 1; text-align: left; justify-content: flex-start; padding-left: 4px; }
-            
             .no-print { text-align: center; margin-bottom: 8px; }
-            @media print { .no-print { display: none; } }
+            @media print { .no-print { display: none !important; } }
         </style></head><body>
             <div class="timestamp">Elaborato il ${dataOggi} alle ${oraEsatta}</div>
             <h2>BUS DOMATTINA</h2>
@@ -1079,9 +1241,7 @@ function generaPopUpStampaBus() {
             </div>
 
             <div class="grid-container">
-                ${colonneHtml
-                    .map(
-                        (htmlDest) => `
+                ${colonneHtml.map((htmlDest) => `
                     <div class="colonna">
                         <div class="column-header">
                             <div class="h-cell h-room">Room</div>
@@ -1093,8 +1253,7 @@ function generaPopUpStampaBus() {
                         </div>
                         ${htmlDest}
                     </div>`
-                    )
-                    .join("")}
+                ).join("")}
             </div>
         </body></html>
     `);
@@ -1109,34 +1268,13 @@ function generaPopUpStampaBusGenerico() {
     const dataOggi = oggi.toLocaleDateString("it-IT");
     const oraEsatta = oggi.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
-    let dbStudentiGenerico = typeof window.studenticonvittori !== "undefined" ? window.studenticonvittori : (typeof studenticonvittori !== "undefined" ? studenticonvittori : []);
-
-    if (dbStudentiGenerico.length === 0) {
-        console.error("Errore: studenticonvittori non definito o vuoto.");
-        alert("Errore: database studenti non caricato.");
+    const dbStudentiGenerico = ottieniDatabaseStudenti();
+    if (!dbStudentiGenerico || dbStudentiGenerico.length === 0) {
+        alert("Errore: database studenti non caricato o vuoto.");
         return;
     }
 
-    // 1. FILTRO CLASSI ESCLUSE
-    const validi = dbStudentiGenerico.filter((s) => {
-        if (!s || !s.cognome || !s.classe) return false;
-        const classe = s.classe.toUpperCase();
-        const escluse = ["2A", "2B"];
-        return !escluse.includes(classe) && !classe.includes("P");
-    });
-
-    // 2. SEPARAZIONE E ORDINAMENTO
-    const resto = validi.filter((s) => s.classe !== "5B");
-    const classe5B = validi.filter((s) => s.classe === "5B");
-
-    resto.sort((a, b) => a.cognome.localeCompare(b.cognome));
-    classe5B.sort((a, b) => {
-        const gA = a.gruppo || "";
-        const gB = b.gruppo || "";
-        return (gA + a.cognome).localeCompare(gB + b.cognome);
-    });
-
-    const listaFinale = [...resto, ...classe5B];
+    const listaFinale = filtraEOrdinaStudentiBus(dbStudentiGenerico);
 
     // 3. RIPARTIZIONE IN 3 COLONNE BILANCIATE
     const itemsPerCol = Math.ceil(listaFinale.length / 3);
@@ -1147,7 +1285,7 @@ function generaPopUpStampaBusGenerico() {
         const infoClasse = `${s.classe} ${s.percorso ? s.percorso : ""} ${s.gruppo ? "• " + s.gruppo : ""}`;
 
         let bgStyle = "";
-        if (s.classe === "5B") {
+        if (s.classe.toUpperCase() === "5B") {
             if (s.gruppo === "G1") bgStyle = "background-color: #e8f4fd;";
             if (s.gruppo === "G2") bgStyle = "background-color: #fef9e7;";
         }
@@ -1175,40 +1313,29 @@ function generaPopUpStampaBusGenerico() {
             .timestamp { position: absolute; top: 5px; right: 10px; font-size: 0.6rem; color: #777; }
             .grid-container { display: flex; gap: 10px; justify-content: space-between; }
             .colonna { width: 32.5%; display: flex; flex-direction: column; }
-            
             .column-header { display: flex; background: #333; color: white; font-weight: bold; font-size: 0.6rem; text-transform: uppercase; border: 1px solid #000; height: 18px; }
-            
             .bus-row { display: flex; font-size: 0.68rem; border-left: 1px solid #000; border-right: 1px solid #000; border-bottom: 1px solid #000; align-items: stretch; page-break-inside: avoid; height: 22px; }
-            
             .b-cell, .h-cell { padding: 2px 2px; text-align: center; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; }
-            
             .b-room, .h-room { width: 25px; font-size: 0.58rem; }
             .b-room { border-right: 1px solid #ccc; font-weight: bold; background: #f5f5f5; }
             .h-room { border-right: 1px solid #555; }
-            
             .b-name, .h-name { width: 105px; text-align: left; justify-content: flex-start; padding-left: 4px; }
             .b-name { border-right: 1px solid #ccc; text-transform: uppercase; text-overflow: ellipsis; }
             .h-name { border-right: 1px solid #555; }
-            
             .b-class, .h-class { width: 65px; font-size: 0.55rem; }
             .b-class { border-right: 1px solid #ccc; }
             .h-class { border-right: 1px solid #555; }
-            
             .b-check, .h-check { width: 22px; }
             .b-check { border-right: 1px solid #ccc; }
             .h-check { border-right: 1px solid #555; }
-            
             .b-standby, .h-standby { width: 25px; border-right: 1px solid #ccc; }
             .h-standby { border-right: 1px solid #555; }
-
             .b-notes, .h-notes { flex-grow: 1; text-align: left; justify-content: flex-start; padding-left: 4px; }
-            
             .no-print { text-align: center; margin-bottom: 8px; }
             @media print { .no-print { display: none !important; } }
         </style></head><body>
             <div class="timestamp">Generato il ${dataOggi} alle ${oraEsatta}</div>
             <h2>BUS DEL MATTINO</h2>
-            
             <div class="date-subtitle no-print">${dataTestuale} — Studenti tot: <b>${listaFinale.length}</b></div>
             
             <div class="no-print">
@@ -1218,9 +1345,7 @@ function generaPopUpStampaBusGenerico() {
             </div>
 
             <div class="grid-container">
-                ${colonneHtml
-                    .map(
-                        (htmlDest) => `
+                ${colonneHtml.map((htmlDest) => `
                     <div class="colonna">
                         <div class="column-header">
                             <div class="h-cell h-room">Room</div>
@@ -1232,8 +1357,7 @@ function generaPopUpStampaBusGenerico() {
                         </div>
                         ${htmlDest}
                     </div>`
-                    )
-                    .join("")}
+                ).join("")}
             </div>
         </body></html>
     `);
@@ -1241,7 +1365,10 @@ function generaPopUpStampaBusGenerico() {
 }
 // --- FINE FUNZIONI DI STAMPA E LOGICHE DI CONTROLLO CONVITTO ---
 
+// ==========================================
 // --- 6. GESTIONE ASSENZE PROGRAMMATE ---
+// ==========================================
+
 function salvaAssenzeProgrammate() {
     localStorage.setItem("assenzeProgrammate", JSON.stringify(assenzeProgrammate));
     if (typeof syncAssenzeToFirebase === "function") {
@@ -1259,7 +1386,6 @@ function isAssenteProgrammato(cognome, data) {
     const lista = assenzeProgrammate[cognome.toUpperCase()];
     if (!lista) return false;
 
-    // Normalizzazione della data corrente senza offset di fuso orario artificiale
     const oggi = new Date(data);
     oggi.setHours(0, 0, 0, 0);
 
@@ -1280,12 +1406,14 @@ function aggiungiAssenza() {
 
     if (!dal || !al) return alert("Seleziona entrambe le date");
 
-    let dbStudentiAssenze = typeof window.studenticonvittori !== "undefined" ? window.studenticonvittori : (typeof studenticonvittori !== "undefined" ? studenticonvittori : []);
+    const dbStudentiAssenze = ottieniDatabaseStudenti();
+    if (!dbStudentiAssenze) return alert("Impossibile accedere al database studenti.");
+    
     let studentiDaAggiornare = [];
 
     if (classeSel) {
         studentiDaAggiornare = dbStudentiAssenze
-            .filter((s) => s.classe === classeSel && s.cognome)
+            .filter((s) => s && s.classe === classeSel && s.cognome)
             .map((s) => s.cognome.toUpperCase());
     } else if (cognomeSel) {
         studentiDaAggiornare = [cognomeSel.toUpperCase()];
@@ -1310,19 +1438,18 @@ function renderListaAssenze() {
 
     container.innerHTML = Object.entries(assenzeProgrammate)
         .map(([cognome, periodi]) => {
+            // Escape sicuro del cognome per l'uso all'interno di attributi HTML o funzioni JS inline
+            const cognomeSafeJS = cognome.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            
             return `
             <div style="margin-bottom:10px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">
                 <b>${cognome}</b>
-                ${periodi
-                    .map(
-                        (p, i) => `
+                ${periodi.map((p, i) => `
                     <div style="font-size:0.8rem; display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
                         <span>🗓️ ${p.dal} ➔ ${p.al}</span>
-                        <button onclick="rimuoviAssenza('${cognome.replace(/'/g, "\\'")}', ${i})" style="border:none; background:none; cursor:pointer;">❌</button>
+                        <button onclick="rimuoviAssenza('${cognomeSafeJS}', ${i})" style="border:none; background:none; cursor:pointer;">❌</button>
                     </div>
-                `
-                    )
-                    .join("")}
+                `).join("")}
             </div>
         `;
         })
@@ -1330,17 +1457,21 @@ function renderListaAssenze() {
 }
 
 function rimuoviAssenza(cognome, index) {
-    if (assenzeProgrammate[cognome]) {
-        assenzeProgrammate[cognome].splice(index, 1);
-        if (assenzeProgrammate[cognome].length === 0) {
-            delete assenzeProgrammate[cognome];
+    const cognomeKey = cognome.toUpperCase();
+    if (assenzeProgrammate[cognomeKey]) {
+        assenzeProgrammate[cognomeKey].splice(index, 1);
+        if (assenzeProgrammate[cognomeKey].length === 0) {
+            delete assenzeProgrammate[cognomeKey];
         }
         salvaAssenzeProgrammate();
         renderListaAssenze();
     }
 }
 
+// ==========================================
 // --- 7. PERMESSI E UTILITY ---
+// ==========================================
+
 function popolaListaPermessi() {
     const container = document.getElementById("listaPermessiContent");
     if (!container) return;
@@ -1358,12 +1489,10 @@ function popolaListaPermessi() {
         .map((cognome) => {
             const orari = databaseOrari[cognome];
             let dettagli = Object.keys(orari)
-                .map(
-                    (g) => {
-                        const nomeGiorno = giorniSettimana[g] ? giorniSettimana[g].substring(0, 2) : `G${g}`;
-                        return `<div style="font-size:0.8em; margin-left:10px;"><b style="color:var(--p, #2980b9)">${nomeGiorno}:</b> ${orari[g].out || "--:--"} > ${orari[g].in || "--:--"}</div>`;
-                    }
-                )
+                .map((g) => {
+                    const nomeGiorno = giorniSettimana[g] ? giorniSettimana[g].substring(0, 2) : `G${g}`;
+                    return `<div style="font-size:0.8em; margin-left:10px;"><b style="color:var(--p, #2980b9)">${nomeGiorno}:</b> ${orari[g].out || "--:--"} > ${orari[g].in || "--:--"}</div>`;
+                })
                 .join("");
             return `<div style="margin-bottom:12px; border-bottom:1px solid #eee; padding-bottom:4px;"><b>${cognome}</b>${dettagli}</div>`;
         })
@@ -1374,11 +1503,11 @@ function popolaSelectStudenti() {
     const sel = document.getElementById("selectStudente");
     if (!sel) return;
 
-    let dbStudentiSelect = typeof window.studenticonvittori !== "undefined" ? window.studenticonvittori : (typeof studenticonvittori !== "undefined" ? studenticonvittori : []);
+    const dbStudentiSelect = ottieniDatabaseStudenti() || [];
     const gruppi = {};
     
     dbStudentiSelect.forEach((s) => {
-        if (!s.classe || !s.cognome) return;
+        if (!s || !s.classe || !s.cognome) return;
         if (!gruppi[s.classe]) gruppi[s.classe] = [];
         gruppi[s.classe].push(s);
     });
@@ -1388,9 +1517,11 @@ function popolaSelectStudenti() {
         .sort()
         .forEach((classe) => {
             html += `<optgroup label="Classe ${classe}">`;
-            gruppi[classe].sort((a, b) => a.cognome.localeCompare(b.cognome)).forEach((s) => {
-                html += `<option value="${s.cognome}">${s.cognome} ${s.nome || ""}</option>`;
-            });
+            gruppi[classe]
+                .sort((a, b) => a.cognome.localeCompare(b.cognome))
+                .forEach((s) => {
+                    html += `<option value="${s.cognome}">${s.cognome} ${s.nome || ""}</option>`;
+                });
             html += `</optgroup>`;
         });
     sel.innerHTML = html;
@@ -1400,11 +1531,10 @@ function popolaSelectClassi() {
     const sel = document.getElementById("selectClasse");
     if (!sel) return;
     
-    let dbStudentiClassi = typeof window.studenticonvittori !== "undefined" ? window.studenticonvittori : (typeof studenticonvittori !== "undefined" ? studenticonvittori : []);
-    const classiUniche = [...new Set(dbStudentiClassi.map((s) => s.classe).filter(Boolean))].sort();
+    const dbStudentiClassi = ottieniDatabaseStudenti() || [];
+    const classiUniche = [...new Set(dbStudentiClassi.map((s) => s?.classe).filter(Boolean))].sort();
     
-    sel.innerHTML =
-        `<option value="">-- Seleziona Classe --</option>` +
+    sel.innerHTML = `<option value="">-- Seleziona Classe --</option>` +
         classiUniche.map((c) => `<option value="${c}">${c}</option>`).join("");
 }
 
@@ -1417,8 +1547,10 @@ function togglePanel() {
     } else {
         popolaListaPermessi();
         popolaSelectStudenti();
-        renderListaAssenze();
         popolaSelectClassi();
+        if (typeof renderListaAssenze === "function") {
+            renderListaAssenze();
+        }
         panel.style.right = "0px";
     }
 }
@@ -1432,7 +1564,9 @@ function isStudenteInLabOggi(classe, gruppo, dataOggetto) {
     const gLab = calDinamico[dataKey];
     
     if ({ 1: ["2P"], 3: ["2B"], 4: ["2A"] }[giorno]?.includes(classe)) return true;
-    if ((classe === "5A" || classe === "5B") && gLab) {
+    
+    const classeUpper = classe.toUpperCase();
+    if ((classeUpper === "5A" || classeUpper === "5B") && gLab) {
         return (gLab === "gr1" && gruppo === "G1") || (gLab === "gr2" && gruppo === "G2");
     }
     return false;
@@ -1554,7 +1688,10 @@ function cancellaNote() {
     }
 }
 
+// ==========================================
 // --- AUTHENTICATION & INITIALIZATION ---
+// ==========================================
+
 const auth = typeof firebase !== "undefined" ? firebase.auth() : null;
 
 function login() {
@@ -1572,6 +1709,11 @@ function login() {
         return;
     }
 
+    if (!auth) {
+        if (errorField) errorField.innerText = "Firebase Auth non configurato";
+        return;
+    }
+
     auth.signInWithEmailAndPassword(email, password)
         .then(() => {
             const screen = document.getElementById("loginScreen");
@@ -1584,6 +1726,7 @@ function login() {
         });
 }
 
+// Inizializzazione Listener di Stato Firebase
 if (auth) {
     auth.onAuthStateChanged((user) => {
         const loginScreen = document.getElementById("loginScreen");
@@ -1591,23 +1734,36 @@ if (auth) {
             console.log("Sessione attiva per:", user.email);
             if (loginScreen) loginScreen.style.display = "none";
             
-            // Inizializzazione globale dello stato applicativo
-            caricaAssenzeProgrammate();
+            // Inizializzazione dello stato applicativo
+            if (typeof caricaAssenzeProgrammate === "function") caricaAssenzeProgrammate();
             if (typeof init === "function") init();
             if (typeof startAutoSave === "function") startAutoSave();
             
             mostraDataReset();
-            setInterval(updateClock, 1000);
+            
+            // Previene la duplicazione dei timer se onAuthStateChanged si attiva più volte
+            if (!window.clockIntervalId) {
+                window.clockIntervalId = setInterval(updateClock, 1000);
+            }
         } else {
             console.log("Nessun utente autenticato. Schermata di blocco.");
             if (loginScreen) loginScreen.style.display = "flex";
             if (typeof stopAutoSave === "function") stopAutoSave();
+            
+            if (window.clockIntervalId) {
+                clearInterval(window.clockIntervalId);
+                window.clockIntervalId = null;
+            }
         }
     });
 }
 
 function logout() {
     if (typeof stopAutoSave === "function") stopAutoSave();
+    if (window.clockIntervalId) {
+        clearInterval(window.clockIntervalId);
+        window.clockIntervalId = null;
+    }
     if (auth) {
         auth.signOut().then(() => {
             location.reload();
@@ -1615,7 +1771,8 @@ function logout() {
     }
 }
 
-// Gestore eventi pronto all'uso se necessario
-window.onload = () => {
+// Inizializzazione asincrona al caricamento del DOM
+window.addEventListener("DOMContentLoaded", () => {
     updateClock();
-};
+});
+
