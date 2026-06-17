@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestione Permessi - Turni, Orari, Assenze</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background: #f0f2f5; }
+    .container { max-width: 1400px; margin: auto; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+    .toolbar button, .toolbar input { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+    .toolbar button { background: #0078d4; color: white; cursor: pointer; border: none; }
+    .toolbar button:hover { background: #005a9e; }
+    .toolbar button.secondary { background: #7f868c; }
+    .toolbar button.secondary:hover { background: #686868; }
+    .toolbar button.reset { background: #ff4141; }
+    .toolbar button.reset:hover { background: #d84e4e; }
+    .toolbar button.warning { background: #e07c00; }
+    .toolbar button.warning:hover { background: #bb6801; }
+    .section { background: #fefefe; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .section h3 { margin-top: 0; border-bottom: 2px solid #0078d4; display: inline-block; padding-bottom: 4px; }
+    textarea { width: 100%; font-family: monospace; font-size: 13px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; background: #fafafa; }
+    .status { margin-top: 10px; font-size: 13px; padding: 6px 12px; border-radius: 6px; }
+    .status.success { background: #d4edda; color: #155724; }
+    .status.error { background: #f8d7da; color: #721c24; }
+    .footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    button.small { padding: 4px 8px; font-size: 12px; margin-left: 10px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1><a href="index.html">index</a></h1>
+  <h1> Gestione Permessi (Turni, Orari, Assenze)</h1>
+  <div class="toolbar">
+    <input type="file" id="fileInput" accept=".json" />
+    <button id="loadBtn">📂 Carica JSON</button>
+    <button id="exportJsonBtn" class="secondary">💾 Esporta JSON</button>
+    <button id="exportJsBtn" class="warning">📜 Esporta come permessi.js</button>
+    <button id="resetBtn" class="reset">⟳ Reset default</button>
+  </div>
+
+  <!-- Sezioni modificabili -->
+  <div class="section">
+    <h3> Laboratori Pranzo <button id="validateLabPranzo" class="small">✔️ Valida</button></h3>
+    <textarea id="labPranzo" rows="4" placeholder=''></textarea>
+  </div>
+
+  <div class="section">
+    <h3> Turni Dinner <button id="validateTurniDinner" class="small">✔️ Valida</button></h3>
+    <textarea id="turniDinner" rows="4" placeholder=''></textarea>
+  </div>
+
+  <div class="section">
+    <h3> Laboratori Dinner <button id="validateLabDinner" class="small">✔️ Valida</button></h3>
+    <textarea id="labDinner" rows="4" placeholder=''></textarea>
+  </div>
+
+  <div class="section">
+    <h3> Cambio Turni Dinner <button id="validateOverride" class="small">✔️ Valida</button></h3>
+    <textarea id="overrideTurni" rows="8" placeholder=''></textarea>
+    <div class="note"></div>
+  </div>
+
+  <div class="section">
+    <h3> Orari Permessi Permanenti <button id="validateOrari" class="small">✔️ Valida</button></h3>
+    <textarea id="orariPP" rows="12" placeholder=''></textarea>
+    <div class="note"></div>
+  </div>
+
+  <div class="section">
+    <h3> Assenti con Permesso <button id="validateAssenti" class="small">✔️ Valida</button></h3>
+    <textarea id="assentiPermesso" rows="6" placeholder=''></textarea>
+  </div>
+
+  <div class="section">
+    <h3> Calendario Laboratori Dinner quinte <button id="validateCalendario" class="small">✔️ Valida</button></h3>
+    <textarea id="calendarioGruppi" rows="8" placeholder=''></textarea>
+  </div>
+
+  <div class="footer">
+    <span id="statusMsg" class="status"></span>
+  </div>
+</div>
+
+<script>
+  // --- DATI DI DEFAULT (basati sul permessi.js originale) ---
+  
+
+  // Mappa ID textarea -> chiave oggetto
+  const sections = {
+    labPranzo: 'LAB_PRANZO',
+    turniDinner: 'TURNI_DINNER',
+    labDinner: 'LAB_DINNER',
+    overrideTurni: 'OVERRIDE_TURNI_DINNER',
+    orariPP: 'ORARI_PP',
+    assentiPermesso: 'ASSENTI_PERMESSO',
+    calendarioGruppi: 'CALENDARIO_GRUPPI_DINNER'
+  };
+
+  // Inizializza i textarea con i valori di default
+  function setDefaultValues() {
+    document.getElementById('labPranzo').value = JSON.stringify(DEFAULT_DATA.LAB_PRANZO, null, 2);
+    document.getElementById('turniDinner').value = JSON.stringify(DEFAULT_DATA.TURNI_DINNER, null, 2);
+    document.getElementById('labDinner').value = JSON.stringify(DEFAULT_DATA.LAB_DINNER, null, 2);
+    document.getElementById('overrideTurni').value = JSON.stringify(DEFAULT_DATA.OVERRIDE_TURNI_DINNER, null, 2);
+    document.getElementById('orariPP').value = JSON.stringify(DEFAULT_DATA.ORARI_PP, null, 2);
+    document.getElementById('assentiPermesso').value = JSON.stringify(DEFAULT_DATA.ASSENTI_PERMESSO, null, 2);
+    document.getElementById('calendarioGruppi').value = JSON.stringify(DEFAULT_DATA.CALENDARIO_GRUPPI_DINNER, null, 2);
+  }
+
+  // Funzione per validare e ottenere un oggetto da una textarea
+  function getValidatedObject(textareaId, sectionName) {
+    const raw = document.getElementById(textareaId).value;
+    try {
+      const obj = JSON.parse(raw);
+      return obj;
+    } catch (e) {
+      showStatus(`❌ Errore JSON in ${sectionName}: ${e.message}`, 'error');
+      return null;
+    }
+  }
+
+  // Mostra messaggio nello status
+  function showStatus(msg, type = 'success') {
+    const statusDiv = document.getElementById('statusMsg');
+    statusDiv.textContent = msg;
+    statusDiv.className = `status ${type}`;
+    setTimeout(() => {
+      if (statusDiv.className.includes('status')) statusDiv.className = 'status';
+    }, 4000);
+  }
+
+  // Carica dati da un oggetto completo
+  function loadDataIntoUI(data) {
+    try {
+      document.getElementById('labPranzo').value = JSON.stringify(data.LAB_PRANZO || {}, null, 2);
+      document.getElementById('turniDinner').value = JSON.stringify(data.TURNI_DINNER || {}, null, 2);
+      document.getElementById('labDinner').value = JSON.stringify(data.LAB_DINNER || {}, null, 2);
+      document.getElementById('overrideTurni').value = JSON.stringify(data.OVERRIDE_TURNI_DINNER || {}, null, 2);
+      document.getElementById('orariPP').value = JSON.stringify(data.ORARI_PP || {}, null, 2);
+      document.getElementById('assentiPermesso').value = JSON.stringify(data.ASSENTI_PERMESSO || {}, null, 2);
+      document.getElementById('calendarioGruppi').value = JSON.stringify(data.CALENDARIO_GRUPPI_DINNER || {}, null, 2);
+      showStatus('✅ Dati caricati correttamente', 'success');
+    } catch (err) {
+      showStatus(`❌ Errore nel caricamento: ${err.message}`, 'error');
+    }
+  }
+
+  // Recupera l'intero dataset dalle textarea (con validazione)
+  function getAllData() {
+    const result = {};
+    let valid = true;
+    for (const [textareaId, key] of Object.entries(sections)) {
+      const obj = getValidatedObject(textareaId, key);
+      if (obj === null) {
+        valid = false;
+        break;
+      }
+      result[key] = obj;
+    }
+    return valid ? result : null;
+  }
+
+  // Caricamento da file JSON
+  function loadFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        // Controlla che abbia almeno una delle proprietà attese
+        if (typeof data !== 'object') throw new Error('Il file non è un oggetto JSON valido');
+        loadDataIntoUI(data);
+      } catch (err) {
+        showStatus(`❌ Errore nel parsing JSON: ${err.message}`, 'error');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Esporta come JSON
+  function exportAsJSON() {
+    const fullData = getAllData();
+    if (!fullData) return;
+    const dataStr = JSON.stringify(fullData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'permessi.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showStatus('📁 JSON esportato come permessi.json', 'success');
+  }
+
+  // Esporta come JavaScript (permessi.js)
+  function exportAsJS() {
+    const fullData = getAllData();
+    if (!fullData) return;
+    let jsContent = `/**\n * DATABASE PERMESSI - Da modificare tramite UI\n * Generato automaticamente\n */\n\n`;
+    for (const [key, value] of Object.entries(fullData)) {
+      jsContent += `const ${key} = ${JSON.stringify(value, null, 2)};\n\n`;
+    }
+    jsContent += `// Esporta se necessario (per moduli)\n// export { LAB_PRANZO, TURNI_DINNER, LAB_DINNER, OVERRIDE_TURNI_DINNER, ORARI_PP, ASSENTI_PERMESSO, CALENDARIO_GRUPPI_DINNER };\n`;
+    const blob = new Blob([jsContent], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'permessi.js';
+    a.click();
+    URL.revokeObjectURL(url);
+    showStatus('📜 File JavaScript esportato come permessi.js', 'success');
+  }
+
+  // Reset ai valori di default
+  function resetToDefault() {
+    if (confirm('⚠️ Ripristinare tutte le configurazioni ai valori originali? Le modifiche non salvate andranno perse.')) {
+      setDefaultValues();
+      showStatus('🔁 Reset eseguito. Valori di default ripristinati.', 'success');
+    }
+  }
+
+  // Aggiungi validatori singoli
+  function addValidator(textareaId, sectionName) {
+    const btn = document.getElementById(`validate${sectionName.replace(/_/g, '')}`);
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const obj = getValidatedObject(textareaId, sectionName);
+        if (obj !== null) {
+          showStatus(`✅ ${sectionName} è un JSON valido.`, 'success');
+        }
+      });
+    }
+  }
+
+  // Event listeners
+  document.getElementById('loadBtn').addEventListener('click', () => {
+    const file = document.getElementById('fileInput').files[0];
+    if (!file) {
+      showStatus('⚠️ Seleziona un file JSON prima di caricare.', 'error');
+      return;
+    }
+    loadFromFile(file);
+  });
+  document.getElementById('exportJsonBtn').addEventListener('click', exportAsJSON);
+  document.getElementById('exportJsBtn').addEventListener('click', exportAsJS);
+  document.getElementById('resetBtn').addEventListener('click', resetToDefault);
+
+  // Validatori per sezione
+  addValidator('labPranzo', 'LAB_PRANZO');
+  addValidator('turniDinner', 'TURNI_DINNER');
+  addValidator('labDinner', 'LAB_DINNER');
+  addValidator('overrideTurni', 'OVERRIDE_TURNI_DINNER');
+  addValidator('orariPP', 'ORARI_PP');
+  addValidator('assentiPermesso', 'ASSENTI_PERMESSO');
+  addValidator('calendarioGruppi', 'CALENDARIO_GRUPPI_DINNER');
+
+  // Inizializza con i valori di default
+  setDefaultValues();
+  showStatus('📂 Pronto. Carica un file JSON o modifica le configurazioni.', 'success');
+</script>
+</body>
+</html>

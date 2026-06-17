@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestione Studenti - Modifica classe, room, percorso, gruppo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background: #fffeea; }
+    .container { max-width: 1400px; margin: auto; background: #fff7fb; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+    .toolbar input, .toolbar button { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+    .toolbar button { background: #0078d4; color: white; cursor: pointer; border: none; }
+    .toolbar button:hover { background: #005a9e; }
+    .toolbar button.secondary { background: #6c757d; }
+    .toolbar button.danger { background: #dc3545; }
+    .toolbar button.warning { background: #2debed; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;}
+    .toolbar button.warning:hover { background: #2ff9cd; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;}
+    .toolbar button.warning2 { background: #2db7ed; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;}
+    .toolbar button.warning2:hover { background: #2fc3f9; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;}
+    .search-box { flex: 2; min-width: 200px; }
+    .replace-panel { background: #f8f9fa; padding: 12px 15px; border-radius: 8px; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; border-left: 4px solid #ff8c00; }
+    .replace-panel label { font-size: 12px; font-weight: bold; margin-right: 4px; }
+    .replace-panel select, .replace-panel input { padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;  }
+    .replace-panel button { background: #2deda6; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+    .replace-panel button:hover { background: #2ff9cd; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+    .count-badge { background: #e9ecef; padding: 2px 8px; border-radius: 20px; font-size: 12px; margin-left: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; white-space: nowrap; }
+    th { background: #f0f0f0; position: sticky; top: 0; }
+    td input { width: 100%; min-width: 80px; border: 1px solid #ccc; border-radius: 4px; padding: 4px 6px; }
+    .id-col { width: 50px; text-align: center; }
+    .cognome-col, .nome-col { min-width: 120px; }
+    .classe-col, .room-col, .percorso-col, .gruppo-col { width: 100px; }
+    .footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+    .status { margin-top: 10px; font-size: 13px; color: #28a745; }
+    @media (max-width: 1000px) { td, th { white-space: normal; } td input { min-width: 60px; } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1><a href="index.html">index</a></h1>
+  <h1> Gestione di tutti gli studenti </h1>
+  <div class="toolbar">
+    <input type="file" id="fileInput" accept=".json" />
+    <button id="loadBtn">📂 Carica JSON</button>
+    <input type="text" id="searchInput" class="search-box" placeholder="Filtra per ID, cognome, nome o classe..." />
+    <button id="exportJsonBtn" class="secondary">💾 Esporta JSON</button>
+    <button id="exportJsBtn" class="secondary">📜 Esporta JavaScript</button>
+    <button id="resetBtn" class="danger">⟳ Resetta modifiche</button>
+  </div>
+
+  <!-- PANNELLO SOSTITUISCI -->
+  <div class="replace-panel">
+    <div><label>📌 Campo:</label>
+      <select id="replaceField">
+        <option value="classe">Classe</option>
+        <option value="room">Room</option>
+        <option value="percorso">Percorso</option>
+        <option value="gruppo">Gruppo</option>
+      </select>
+    </div>
+    <div><label>🔄 Nuovo valore:</label>
+      <input type="text" id="replaceValue" placeholder="es. 3A, 210, 🍴, G1" />
+    </div>
+    <button id="applyOnFilteredBtn" class="warning">✏️ Sostituisci su FILTRATI</button>
+    <button id="applyOnAllBtn" class="warning2">🌍 Sostituisci su TUTTI</button>
+    <span id="replaceCount" class="count-badge">0 studenti</span>
+  </div>
+
+  <div style="overflow-x: auto; max-height: 70vh;">
+    <table id="studentiTable">
+      <thead>
+        <tr><th class="id-col">ID</th><th class="cognome-col">Cognome</th><th class="nome-col">Nome</th>
+          <th class="classe-col">Classe</th><th class="room-col">Room</th><th class="percorso-col">Percorso</th>
+          <th class="gruppo-col">Gruppo</th></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+  <div class="footer">
+    <span id="statusMsg" class="status"></span>
+  </div>
+</div>
+
+<script>
+  // Variabili globali
+  let masterData = [];     
+  let currentData = [];    
+  let filteredData = [];    
+
+  // DOM elements
+  const fileInput = document.getElementById('fileInput');
+  const loadBtn = document.getElementById('loadBtn');
+  const searchInput = document.getElementById('searchInput');
+  const exportJsonBtn = document.getElementById('exportJsonBtn');
+  const exportJsBtn = document.getElementById('exportJsBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const tableBody = document.getElementById('tableBody');
+  const statusMsg = document.getElementById('statusMsg');
+  const replaceField = document.getElementById('replaceField');
+  const replaceValue = document.getElementById('replaceValue');
+  const applyOnFilteredBtn = document.getElementById('applyOnFilteredBtn');
+  const applyOnAllBtn = document.getElementById('applyOnAllBtn');
+  const replaceCountSpan = document.getElementById('replaceCount');
+
+  // Funzione per aggiornare il conteggio (corretta)
+  function updateReplaceCount() {
+    const count = filteredData.length;
+    replaceCountSpan.innerText = `${count} ${count === 1 ? 'studente' : 'studenti'}`;
+  }
+
+  // Carica JSON da file
+  function loadJSONFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (Array.isArray(data)) {
+          masterData = JSON.parse(JSON.stringify(data));
+          currentData = JSON.parse(JSON.stringify(data));
+          applyFilter();
+          statusMsg.innerText = `✅ Caricati ${currentData.length} studenti.`;
+        } else {
+          throw new Error('Il file non contiene un array');
+        }
+      } catch (err) {
+        statusMsg.innerText = `❌ Errore nel parsing JSON: ${err.message}`;
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Filtro (supporta anche ID)
+  function applyFilter() {
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    if (!searchTerm) {
+      filteredData = [...currentData];
+    } else {
+      filteredData = currentData.filter(s => 
+        s.id.toString().includes(searchTerm) ||
+        s.cognome.toLowerCase().includes(searchTerm) ||
+        s.nome.toLowerCase().includes(searchTerm) ||
+        (s.classe && s.classe.toLowerCase().includes(searchTerm))
+      );
+    }
+    renderTable();
+    updateReplaceCount();
+  }
+
+  // Render tabella con input editabili
+  function renderTable() {
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+    for (const student of filteredData) {
+      const row = tableBody.insertRow();
+      // ID
+      const cellId = row.insertCell(0);
+      cellId.textContent = student.id;
+      cellId.className = 'id-col';
+      // Cognome
+      const cellCognome = row.insertCell(1);
+      cellCognome.textContent = student.cognome;
+      cellCognome.className = 'cognome-col';
+      // Nome
+      const cellNome = row.insertCell(2);
+      cellNome.textContent = student.nome;
+      cellNome.className = 'nome-col';
+      // Classe (editabile)
+      const cellClasse = row.insertCell(3);
+      const classeInput = document.createElement('input');
+      classeInput.type = 'text';
+      classeInput.value = student.classe || '';
+      classeInput.addEventListener('change', (e) => {
+        student.classe = e.target.value;
+      });
+      cellClasse.appendChild(classeInput);
+      cellClasse.className = 'classe-col';
+      // Room
+      const cellRoom = row.insertCell(4);
+      const roomInput = document.createElement('input');
+      roomInput.type = 'text';
+      roomInput.value = student.room || '';
+      roomInput.addEventListener('change', (e) => {
+        student.room = e.target.value;
+      });
+      cellRoom.appendChild(roomInput);
+      cellRoom.className = 'room-col';
+      // Percorso
+      const cellPercorso = row.insertCell(5);
+      const percorsoInput = document.createElement('input');
+      percorsoInput.type = 'text';
+      percorsoInput.value = student.percorso || '';
+      percorsoInput.placeholder = '🍴 o 🍷';
+      percorsoInput.addEventListener('change', (e) => {
+        student.percorso = e.target.value;
+      });
+      cellPercorso.appendChild(percorsoInput);
+      cellPercorso.className = 'percorso-col';
+      // Gruppo
+      const cellGruppo = row.insertCell(6);
+      const gruppoInput = document.createElement('input');
+      gruppoInput.type = 'text';
+      gruppoInput.value = student.gruppo || '';
+      gruppoInput.placeholder = 'G1 / G2';
+      gruppoInput.addEventListener('change', (e) => {
+        student.gruppo = e.target.value;
+      });
+      cellGruppo.appendChild(gruppoInput);
+      cellGruppo.className = 'gruppo-col';
+    }
+  }
+
+  // Sostituzione su un array
+  function replaceFieldOnStudents(studentsArray, field, newValue) {
+    if (!studentsArray.length) return 0;
+    let modifiedCount = 0;
+    for (const student of studentsArray) {
+      student[field] = newValue;
+      modifiedCount++;
+    }
+    return modifiedCount;
+  }
+
+  // Applica sostituzione sui filtrati
+  function applyOnFiltered() {
+    const field = replaceField.value;
+    const newValue = replaceValue.value;
+    if (newValue === "") {
+      statusMsg.innerText = "⚠️ Inserisci un nuovo valore prima di sostituire.";
+      return;
+    }
+    if (filteredData.length === 0) {
+      statusMsg.innerText = "⚠️ Nessuno studente filtrato da modificare.";
+      return;
+    }
+    if (confirm(`Vuoi modificare il campo "${field}" impostandolo a "${newValue}" per ${filteredData.length} studente(i)?`)) {
+      const modified = replaceFieldOnStudents(filteredData, field, newValue);
+      renderTable();
+      statusMsg.innerText = `✅ Modificato campo "${field}" per ${modified} studenti (filtrati).`;
+    }
+  }
+
+  // Applica sostituzione su tutti
+  function applyOnAll() {
+    const field = replaceField.value;
+    const newValue = replaceValue.value;
+    if (newValue === "") {
+      statusMsg.innerText = "⚠️ Inserisci un nuovo valore prima di sostituire.";
+      return;
+    }
+    if (currentData.length === 0) {
+      statusMsg.innerText = "⚠️ Nessun studente presente.";
+      return;
+    }
+    if (confirm(`⚠️ Attenzione: modificherai TUTTI gli studenti (${currentData.length}).\nCampo: ${field} → "${newValue}". Continuare?`)) {
+      const modified = replaceFieldOnStudents(currentData, field, newValue);
+      applyFilter(); // ricrea filtro e tabella
+      statusMsg.innerText = `✅ Modificato campo "${field}" per ${modified} studenti (intero dataset).`;
+    }
+  }
+
+  // Esporta JSON
+  function exportToJSON() {
+    const dataStr = JSON.stringify(currentData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'studenti_modificati.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    statusMsg.innerText = '📁 JSON esportato come "studenti_modificati.json"';
+  }
+
+  // Esporta JavaScript
+  function exportToJS() {
+    const varName = 'tuttiStudenti';
+    const content = `const ${varName} = ${JSON.stringify(currentData, null, 2)};\n\nexport default ${varName}; // se usi moduli\n// Oppure copia direttamente l'array nel tuo codice.`;
+    const blob = new Blob([content], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'studenti_aggiornati.js';
+    a.click();
+    URL.revokeObjectURL(url);
+    statusMsg.innerText = '📜 File JavaScript esportato. Copia la costante nel tuo codice.';
+  }
+
+  // Resetta modifiche
+  function resetChanges() {
+    if (masterData.length === 0) {
+      statusMsg.innerText = '⚠️ Nessun dato caricato. Carica un file JSON prima.';
+      return;
+    }
+    currentData = JSON.parse(JSON.stringify(masterData));
+    applyFilter();
+    statusMsg.innerText = '🔄 Modifiche annullate. Dati tornati allo stato originale.';
+  }
+
+  // Eventi
+  loadBtn.addEventListener('click', () => {
+    if (fileInput.files.length === 0) {
+      statusMsg.innerText = '⚠️ Seleziona un file JSON prima di caricare.';
+      return;
+    }
+    loadJSONFromFile(fileInput.files[0]);
+  });
+  searchInput.addEventListener('input', () => applyFilter());
+  exportJsonBtn.addEventListener('click', exportToJSON);
+  exportJsBtn.addEventListener('click', exportToJS);
+  resetBtn.addEventListener('click', resetChanges);
+  applyOnFilteredBtn.addEventListener('click', applyOnFiltered);
+  applyOnAllBtn.addEventListener('click', applyOnAll);
+
+  // Messaggio iniziale
+  statusMsg.innerText = '📂 Carica il file studenti.json (con l’array tuttiStudenti) per iniziare.';
+</script>
+</body>
+</html>
