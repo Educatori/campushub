@@ -1,6 +1,7 @@
 // Configurazione Firebase (hub-config.js) del tuo progetto
 
 
+// Configurazione Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCsI40TPF3XQjeJlsPmRKq4aFyO-4ceA1A",
   authDomain: "campushub-90d60.firebaseapp.com",
@@ -12,12 +13,11 @@ const firebaseConfig = {
   measurementId: "G-R5LPY2B2X5"
 };
 
+// Inizializzazione Firebase
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
-
-// Inizializzazione di Firebase
-firebase.initializeApp(firebaseConfig);
-
-// Riferimenti ai servizi
+// Riferimenti ai servizi principali da usare negli altri file JS
+const db = firebase.database();
 const auth = firebase.auth();
-const db = firebase.database(); // In questo esempio usiamo il Realtime Database, perfetto per strutture JSON veloci
-
