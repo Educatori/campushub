@@ -2,57 +2,113 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestione Studenti - Modifica classe, room, percorso, gruppo</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background: #fffeea; }
+    
     .container { max-width: 1400px; margin: auto; background: #fff7fb; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    
+    /* Toolbar & Inputs */
     .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
     .toolbar input, .toolbar button { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
     .toolbar button { background: #0078d4; color: white; cursor: pointer; border: none; }
     .toolbar button:hover { background: #005a9e; }
     .toolbar button.secondary { background: #6c757d; }
+    .toolbar button.secondary:hover { background: #5a6268; }
     .toolbar button.danger { background: #dc3545; }
-    .toolbar button.warning { background: #2debed; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;}
-    .toolbar button.warning:hover { background: #2ff9cd; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;}
-    .toolbar button.warning2 { background: #2db7ed; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;}
-    .toolbar button.warning2:hover { background: #2fc3f9; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px;}
+    .toolbar button.danger:hover { background: #bd2130; }
     .search-box { flex: 2; min-width: 200px; }
+    
+    /* Panels */
     .replace-panel { background: #f8f9fa; padding: 12px 15px; border-radius: 8px; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; border-left: 4px solid #ff8c00; }
-    .replace-panel label { font-size: 12px; font-weight: bold; margin-right: 4px; }
-    .replace-panel select, .replace-panel input { padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;  }
-    .replace-panel button { background: #2deda6; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
-    .replace-panel button:hover { background: #2ff9cd; padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
-    .count-badge { background: #e9ecef; padding: 2px 8px; border-radius: 20px; font-size: 12px; margin-left: 8px; }
+    .replace-panel label { font-size: 12px; font-weight: bold; margin-right: 4px; display: block; }
+    .replace-panel select, .replace-panel input { padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; }
+    .replace-panel button { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; cursor: pointer; }
+    
+    .btn-warning { background: #2debed; border: 1px solid #28c7c9 !important; }
+    .btn-warning:hover { background: #2ff9cd; }
+    .btn-warning2 { background: #2db7ed; border: 1px solid #259ed0 !important; color: white; }
+    .btn-warning2:hover { background: #2fc3f9; }
+    
+    .count-badge { background: #e9ecef; padding: 4px 10px; border-radius: 20px; font-size: 12px; margin-left: 8px; font-weight: bold; }
+    
+    /* Table */
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; white-space: nowrap; }
     th { background: #f0f0f0; position: sticky; top: 0; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { background: #e0e0e0; }
+    th.sortable::after { content: ' ⇅'; opacity: 0.4; font-size: 11px; }
+    th.sort-asc::after { content: ' ▲'; opacity: 1; }
+    th.sort-desc::after { content: ' ▼'; opacity: 1; }
+    
     td input { width: 100%; min-width: 80px; border: 1px solid #ccc; border-radius: 4px; padding: 4px 6px; }
-    .id-col { width: 50px; text-align: center; }
+    .id-col { width: 70px; text-align: center; }
     .cognome-col, .nome-col { min-width: 120px; }
     .classe-col, .room-col, .percorso-col, .gruppo-col { width: 100px; }
+    
     .footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
-    .status { margin-top: 10px; font-size: 13px; color: #28a745; }
+    .status { margin-top: 10px; font-size: 13px; font-weight: bold; color: #0078d4; }
+    
     @media (max-width: 1000px) { td, th { white-space: normal; } td input { min-width: 60px; } }
   </style>
 </head>
 <body>
+
 <div class="container">
-  <h1><a href="index.html">index</a></h1>
-  <h1> Gestione di tutti gli studenti </h1>
+  <h1>Gestione di tutti gli studenti.</h1>
+  
+  <!-- BARRA STRUMENTI -->
   <div class="toolbar">
-    <input type="file" id="fileInput" accept=".json" />
-    <button id="loadBtn">📂 Carica JSON</button>
+    <input type="file" id="fileInput" accept=".json,.js" />
+    <button id="loadBtn">📂 Carica JS/JSON</button>
     <input type="text" id="searchInput" class="search-box" placeholder="Filtra per ID, cognome, nome o classe..." />
     <button id="exportJsonBtn" class="secondary">💾 Esporta JSON</button>
     <button id="exportJsBtn" class="secondary">📜 Esporta JavaScript</button>
     <button id="resetBtn" class="danger">⟳ Resetta modifiche</button>
   </div>
 
+  <!-- PANNELLO AGGIUNGI STUDENTE -->
+  <div id="addStudentPanel" class="replace-panel" style="display: none; border-left: 4px solid #28a745;">
+    <div>
+      <label>🆔 ID:</label>
+      <input type="number" id="newStudentId" placeholder="es. 125" />
+    </div>
+    <div>
+      <label>👤 Cognome:</label>
+      <input type="text" id="newStudentCognome" placeholder="Rossi" />
+    </div>
+    <div>
+      <label>👤 Nome:</label>
+      <input type="text" id="newStudentNome" placeholder="Mario" />
+    </div>
+    <div>
+      <label>🏫 Classe:</label>
+      <input type="text" id="newStudentClasse" placeholder="1A" />
+    </div>
+    <div>
+      <label>🚪 Room:</label>
+      <input type="text" id="newStudentRoom" placeholder="210" />
+    </div>
+    <div>
+      <label>🍴 Percorso:</label>
+      <input type="text" id="newStudentPercorso" placeholder="🍴" />
+    </div>
+    <div>
+      <label>👥 Gruppo:</label>
+      <input type="text" id="newStudentGruppo" placeholder="G1" />
+    </div>
+    <button id="confirmAddStudentBtn" class="btn-warning">✅ Aggiungi</button>
+    <button id="cancelAddStudentBtn" class="secondary">❌ Annulla</button>
+  </div>
+
   <!-- PANNELLO SOSTITUISCI -->
   <div class="replace-panel">
-    <div><label>📌 Campo:</label>
+    <div>
+      <label>📌 Campo:</label>
       <select id="replaceField">
         <option value="classe">Classe</option>
         <option value="room">Room</option>
@@ -60,36 +116,63 @@
         <option value="gruppo">Gruppo</option>
       </select>
     </div>
-    <div><label>🔄 Nuovo valore:</label>
+    <div>
+      <label>🔄 Nuovo valore:</label>
       <input type="text" id="replaceValue" placeholder="es. 3A, 210, 🍴, G1" />
     </div>
-    <button id="applyOnFilteredBtn" class="warning">✏️ Sostituisci su FILTRATI</button>
-    <button id="applyOnAllBtn" class="warning2">🌍 Sostituisci su TUTTI</button>
+    <button id="addStudentBtn">➕ Aggiungi studente</button>
+    <button id="applyOnFilteredBtn" class="btn-warning">✏️ Sostituisci su FILTRATI</button>
+    <button id="applyOnAllBtn" class="btn-warning2">🌍 Sostituisci su TUTTI</button>
     <span id="replaceCount" class="count-badge">0 studenti</span>
   </div>
 
+  <!-- TABELLA DATI -->
   <div style="overflow-x: auto; max-height: 70vh;">
     <table id="studentiTable">
       <thead>
-        <tr><th class="id-col">ID</th><th class="cognome-col">Cognome</th><th class="nome-col">Nome</th>
-          <th class="classe-col">Classe</th><th class="room-col">Room</th><th class="percorso-col">Percorso</th>
-          <th class="gruppo-col">Gruppo</th></tr>
+        <tr>
+          <th class="id-col sortable" data-sort="id">ID</th>
+          <th class="cognome-col sortable" data-sort="cognome">Cognome</th>
+          <th class="nome-col sortable" data-sort="nome">Nome</th>
+          <th class="classe-col sortable" data-sort="classe">Classe</th>
+          <th class="room-col sortable" data-sort="room">Room</th>
+          <th class="percorso-col sortable" data-sort="percorso">Percorso</th>
+          <th class="gruppo-col sortable" data-sort="gruppo">Gruppo</th>
+          <th style="width: 70px; text-align: center;">Azioni</th>
+        </tr>
       </thead>
       <tbody id="tableBody"></tbody>
     </table>
   </div>
+  
   <div class="footer">
     <span id="statusMsg" class="status"></span>
   </div>
 </div>
 
 <script>
-  // Variabili globali
+  // Stato Applicazione
   let masterData = [];     
   let currentData = [];    
-  let filteredData = [];    
+  let filteredData = [];   
+  
+  let currentSortField = 'id';
+  let currentSortAsc = true;
 
-  // DOM elements
+  // Riferimenti DOM
+  const addStudentBtn = document.getElementById('addStudentBtn');
+  const addStudentPanel = document.getElementById('addStudentPanel');
+  const confirmAddStudentBtn = document.getElementById('confirmAddStudentBtn');
+  const cancelAddStudentBtn = document.getElementById('cancelAddStudentBtn');
+
+  const newStudentId = document.getElementById('newStudentId');
+  const newStudentCognome = document.getElementById('newStudentCognome');
+  const newStudentNome = document.getElementById('newStudentNome');
+  const newStudentClasse = document.getElementById('newStudentClasse');
+  const newStudentRoom = document.getElementById('newStudentRoom');
+  const newStudentPercorso = document.getElementById('newStudentPercorso');
+  const newStudentGruppo = document.getElementById('newStudentGruppo');
+
   const fileInput = document.getElementById('fileInput');
   const loadBtn = document.getElementById('loadBtn');
   const searchInput = document.getElementById('searchInput');
@@ -104,116 +187,222 @@
   const applyOnAllBtn = document.getElementById('applyOnAllBtn');
   const replaceCountSpan = document.getElementById('replaceCount');
 
-  // Funzione per aggiornare il conteggio (corretta)
+  // Ordinamento
+  function sortData(array) {
+    return array.sort((a, b) => {
+      let valA = a[currentSortField] ?? '';
+      let valB = b[currentSortField] ?? '';
+
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return currentSortAsc ? valA - valB : valB - valA;
+      }
+
+      valA = valA.toString().toLowerCase();
+      valB = valB.toString().toLowerCase();
+
+      if (valA < valB) return currentSortAsc ? -1 : 1;
+      if (valA > valB) return currentSortAsc ? 1 : -1;
+      return 0;
+    });
+  }
+
+  // Filtraggio unico e centralizzato
+  function applyFilter() {
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    
+    if (!searchTerm) {
+      filteredData = [...currentData];
+    } else {
+      filteredData = currentData.filter(s => 
+        (s.id !== undefined && s.id.toString().includes(searchTerm)) ||
+        (s.cognome && s.cognome.toLowerCase().includes(searchTerm)) ||
+        (s.nome && s.nome.toLowerCase().includes(searchTerm)) ||
+        (s.classe && s.classe.toLowerCase().includes(searchTerm))
+      );
+    }
+
+    sortData(filteredData);
+    renderTable();
+    updateReplaceCount();
+    updateSortIndicators();
+  }
+
+  function updateSortIndicators() {
+    document.querySelectorAll('th.sortable').forEach(th => {
+      th.classList.remove('sort-asc', 'sort-desc');
+      if (th.getAttribute('data-sort') === currentSortField) {
+        th.classList.add(currentSortAsc ? 'sort-asc' : 'sort-desc');
+      }
+    });
+  }
+
   function updateReplaceCount() {
     const count = filteredData.length;
     replaceCountSpan.innerText = `${count} ${count === 1 ? 'studente' : 'studenti'}`;
   }
 
-  // Carica JSON da file
-  function loadJSONFromFile(file) {
+  // Eventi Header per l'ordinamento
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const field = th.getAttribute('data-sort');
+      if (currentSortField === field) {
+        currentSortAsc = !currentSortAsc;
+      } else {
+        currentSortField = field;
+        currentSortAsc = true;
+      }
+      applyFilter();
+    });
+  });
+
+  // Caricamento Dati
+  function loadDataFromFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
+      const content = e.target.result;
       try {
-        const data = JSON.parse(e.target.result);
-        if (Array.isArray(data)) {
-          masterData = JSON.parse(JSON.stringify(data));
-          currentData = JSON.parse(JSON.stringify(data));
-          applyFilter();
-          statusMsg.innerText = `✅ Caricati ${currentData.length} studenti.`;
+        let data;
+        if (file.name.toLowerCase().endsWith('.json')) {
+          data = JSON.parse(content);
+        } else if (file.name.toLowerCase().endsWith('.js')) {
+          data = extractStudentsFromJS(content);
         } else {
-          throw new Error('Il file non contiene un array');
+          throw new Error('Formato non supportato');
         }
+
+        if (!Array.isArray(data)) {
+          throw new Error('Il file non contiene un array valido');
+        }
+
+        masterData = JSON.parse(JSON.stringify(data));
+        currentData = JSON.parse(JSON.stringify(data));
+
+        applyFilter();
+        statusMsg.innerText = `✅ Caricati ${currentData.length} studenti da "${file.name}".`;
       } catch (err) {
-        statusMsg.innerText = `❌ Errore nel parsing JSON: ${err.message}`;
+        statusMsg.innerText = `❌ Errore nel caricamento: ${err.message}`;
       }
     };
     reader.readAsText(file);
   }
 
-  // Filtro (supporta anche ID)
-  function applyFilter() {
-    const searchTerm = searchInput.value.trim().toLowerCase();
-    if (!searchTerm) {
-      filteredData = [...currentData];
-    } else {
-      filteredData = currentData.filter(s => 
-        s.id.toString().includes(searchTerm) ||
-        s.cognome.toLowerCase().includes(searchTerm) ||
-        s.nome.toLowerCase().includes(searchTerm) ||
-        (s.classe && s.classe.toLowerCase().includes(searchTerm))
-      );
+  function extractStudentsFromJS(content) {
+    const startMatch = content.match(/(?:const|let|var)\s+tuttiStudenti\s*=\s*\[/);
+    if (!startMatch) {
+      throw new Error('Impossibile trovare "const tuttiStudenti = [...]" nel file.');
     }
-    renderTable();
-    updateReplaceCount();
+
+    const startIndex = startMatch.index + startMatch[0].length - 1;
+    let depth = 0, endIndex = -1, inString = false, stringChar = '', escaped = false;
+
+    for (let i = startIndex; i < content.length; i++) {
+      const char = content[i];
+      if (inString) {
+        if (escaped) { escaped = false; continue; }
+        if (char === '\\') { escaped = true; continue; }
+        if (char === stringChar) { inString = false; }
+        continue;
+      }
+      if (char === '"' || char === "'") { inString = true; stringChar = char; continue; }
+      if (char === '[') depth++;
+      if (char === ']') {
+        depth--;
+        if (depth === 0) { endIndex = i; break; }
+      }
+    }
+
+    if (endIndex === -1) throw new Error('Struttura array JS non chiusa correttamente.');
+
+    let arrayText = content.substring(startIndex, endIndex + 1);
+    arrayText = arrayText.replace(/\/\/.*$/gm, '');
+    arrayText = arrayText.replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":');
+    arrayText = arrayText.replace(/,\s*([}\]])/g, '$1');
+
+    return JSON.parse(arrayText);
   }
 
-  // Render tabella con input editabili
+  // Renderizzazione Tabella
   function renderTable() {
     if (!tableBody) return;
     tableBody.innerHTML = '';
+    
     for (const student of filteredData) {
       const row = tableBody.insertRow();
+      
       // ID
       const cellId = row.insertCell(0);
-      cellId.textContent = student.id;
+      const idInput = document.createElement('input');
+      idInput.type = 'number';
+      idInput.value = student.id;
+      idInput.style.textAlign = 'center';
+      idInput.addEventListener('change', (e) => {
+        const newId = Number(e.target.value);
+        if (isNaN(newId) || e.target.value === '') {
+          statusMsg.innerText = '⚠️ L’ID non può essere vuoto.';
+          e.target.value = student.id;
+          return;
+        }
+
+        const duplicate = currentData.find(s => Number(s.id) === newId && s !== student);
+        if (duplicate) {
+          statusMsg.innerText = `⚠️ ID ${newId} già utilizzato da ${duplicate.cognome} ${duplicate.nome}.`;
+          e.target.value = student.id;
+          return;
+        }
+
+        student.id = newId;
+        statusMsg.innerText = `✅ ID aggiornato a ${newId} per ${student.cognome} ${student.nome}.`;
+      });
+      cellId.appendChild(idInput);
       cellId.className = 'id-col';
-      // Cognome
+
+      // Cognome & Nome
       const cellCognome = row.insertCell(1);
-      cellCognome.textContent = student.cognome;
+      cellCognome.textContent = student.cognome || '';
       cellCognome.className = 'cognome-col';
-      // Nome
+
       const cellNome = row.insertCell(2);
-      cellNome.textContent = student.nome;
+      cellNome.textContent = student.nome || '';
       cellNome.className = 'nome-col';
-      // Classe (editabile)
-      const cellClasse = row.insertCell(3);
-      const classeInput = document.createElement('input');
-      classeInput.type = 'text';
-      classeInput.value = student.classe || '';
-      classeInput.addEventListener('change', (e) => {
-        student.classe = e.target.value;
+
+      // Campi Modificabili
+      const fields = [
+        { key: 'classe', cell: 3, class: 'classe-col' },
+        { key: 'room', cell: 4, class: 'room-col' },
+        { key: 'percorso', cell: 5, class: 'percorso-col', placeholder: '🍴 o 🍷' },
+        { key: 'gruppo', cell: 6, class: 'gruppo-col', placeholder: 'G1 / G2' }
+      ];
+
+      fields.forEach(f => {
+        const cell = row.insertCell(f.cell);
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = student[f.key] || '';
+        if (f.placeholder) input.placeholder = f.placeholder;
+        input.addEventListener('change', (e) => {
+          student[f.key] = e.target.value;
+        });
+        cell.appendChild(input);
+        cell.className = f.class;
       });
-      cellClasse.appendChild(classeInput);
-      cellClasse.className = 'classe-col';
-      // Room
-      const cellRoom = row.insertCell(4);
-      const roomInput = document.createElement('input');
-      roomInput.type = 'text';
-      roomInput.value = student.room || '';
-      roomInput.addEventListener('change', (e) => {
-        student.room = e.target.value;
-      });
-      cellRoom.appendChild(roomInput);
-      cellRoom.className = 'room-col';
-      // Percorso
-      const cellPercorso = row.insertCell(5);
-      const percorsoInput = document.createElement('input');
-      percorsoInput.type = 'text';
-      percorsoInput.value = student.percorso || '';
-      percorsoInput.placeholder = '🍴 o 🍷';
-      percorsoInput.addEventListener('change', (e) => {
-        student.percorso = e.target.value;
-      });
-      cellPercorso.appendChild(percorsoInput);
-      cellPercorso.className = 'percorso-col';
-      // Gruppo
-      const cellGruppo = row.insertCell(6);
-      const gruppoInput = document.createElement('input');
-      gruppoInput.type = 'text';
-      gruppoInput.value = student.gruppo || '';
-      gruppoInput.placeholder = 'G1 / G2';
-      gruppoInput.addEventListener('change', (e) => {
-        student.gruppo = e.target.value;
-      });
-      cellGruppo.appendChild(gruppoInput);
-      cellGruppo.className = 'gruppo-col';
-    }
+
+      // Azione Elimina
+      const cellDelete = row.insertCell(7);
+      cellDelete.style.textAlign = 'center';
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.textContent = '🗑️';
+      deleteBtn.title = 'Elimina studente';
+      deleteBtn.style.cssText = 'background: #dc3545; color: white; border: none; border-radius: 5px; padding: 5px 8px; cursor: pointer;';
+
+      deleteBtn.addEventListener('click', () => deleteStudent(student));
+      cellDelete.appendChild(deleteBtn);
+    }    
   }
 
-  // Sostituzione su un array
+  // Operazioni Sostituzione Massiva
   function replaceFieldOnStudents(studentsArray, field, newValue) {
-    if (!studentsArray.length) return 0;
     let modifiedCount = 0;
     for (const student of studentsArray) {
       student[field] = newValue;
@@ -222,7 +411,6 @@
     return modifiedCount;
   }
 
-  // Applica sostituzione sui filtrati
   function applyOnFiltered() {
     const field = replaceField.value;
     const newValue = replaceValue.value;
@@ -234,14 +422,13 @@
       statusMsg.innerText = "⚠️ Nessuno studente filtrato da modificare.";
       return;
     }
-    if (confirm(`Vuoi modificare il campo "${field}" impostandolo a "${newValue}" per ${filteredData.length} studente(i)?`)) {
+    if (confirm(`Vuoi modificare il campo "${field}" in "${newValue}" per ${filteredData.length} studenti filtrati?`)) {
       const modified = replaceFieldOnStudents(filteredData, field, newValue);
       renderTable();
-      statusMsg.innerText = `✅ Modificato campo "${field}" per ${modified} studenti (filtrati).`;
+      statusMsg.innerText = `✅ Modificato campo "${field}" per ${modified} studenti filtrati.`;
     }
   }
 
-  // Applica sostituzione su tutti
   function applyOnAll() {
     const field = replaceField.value;
     const newValue = replaceValue.value;
@@ -253,14 +440,14 @@
       statusMsg.innerText = "⚠️ Nessun studente presente.";
       return;
     }
-    if (confirm(`⚠️ Attenzione: modificherai TUTTI gli studenti (${currentData.length}).\nCampo: ${field} → "${newValue}". Continuare?`)) {
+    if (confirm(`⚠️ Modificherai TUTTI gli studenti (${currentData.length}). Campo: ${field} → "${newValue}". Continuare?`)) {
       const modified = replaceFieldOnStudents(currentData, field, newValue);
-      applyFilter(); // ricrea filtro e tabella
-      statusMsg.innerText = `✅ Modificato campo "${field}" per ${modified} studenti (intero dataset).`;
+      applyFilter();
+      statusMsg.innerText = `✅ Modificato campo "${field}" per ${modified} studenti (dataset intero).`;
     }
   }
 
-  // Esporta JSON
+  // Export & Reset
   function exportToJSON() {
     const dataStr = JSON.stringify(currentData, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -273,48 +460,132 @@
     statusMsg.innerText = '📁 JSON esportato come "studenti_modificati.json"';
   }
 
-  // Esporta JavaScript
   function exportToJS() {
-    const varName = 'tuttiStudenti';
-    const content = `const ${varName} = ${JSON.stringify(currentData, null, 2)};\n\nexport default ${varName}; // se usi moduli\n// Oppure copia direttamente l'array nel tuo codice.`;
-    const blob = new Blob([content], { type: 'text/javascript' });
+    const content = `const tuttiStudenti = ${JSON.stringify(currentData, null, 4)};\n`;
+    const blob = new Blob([content], { type: 'text/javascript;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'studenti_aggiornati.js';
     a.click();
     URL.revokeObjectURL(url);
-    statusMsg.innerText = '📜 File JavaScript esportato. Copia la costante nel tuo codice.';
+    statusMsg.innerText = '📜 JavaScript esportato come "studenti_aggiornati.js"';
   }
 
-  // Resetta modifiche
   function resetChanges() {
     if (masterData.length === 0) {
-      statusMsg.innerText = '⚠️ Nessun dato caricato. Carica un file JSON prima.';
+      statusMsg.innerText = '⚠️ Nessun dato caricato da resettare.';
       return;
     }
     currentData = JSON.parse(JSON.stringify(masterData));
     applyFilter();
-    statusMsg.innerText = '🔄 Modifiche annullate. Dati tornati allo stato originale.';
+    statusMsg.innerText = '🔄 Modifiche annullate. Ripristinati i dati iniziali.';
   }
 
-  // Eventi
-  loadBtn.addEventListener('click', () => {
-    if (fileInput.files.length === 0) {
-      statusMsg.innerText = '⚠️ Seleziona un file JSON prima di caricare.';
+  // Inserimento & Cancellazione
+  function showAddStudentPanel() {
+    addStudentPanel.style.display = 'flex';
+    if (currentData.length > 0) {
+      const maxId = Math.max(...currentData.map(s => Number(s.id) || 0));
+      newStudentId.value = maxId + 1;
+    } else {
+      newStudentId.value = 1;
+    }
+    newStudentCognome.focus();
+  }
+
+  function hideAddStudentPanel() {
+    addStudentPanel.style.display = 'none';
+    newStudentId.value = '';
+    newStudentCognome.value = '';
+    newStudentNome.value = '';
+    newStudentClasse.value = '';
+    newStudentRoom.value = '';
+    newStudentPercorso.value = '';
+    newStudentGruppo.value = '';
+  }
+
+  function addStudent() {
+    const id = Number(newStudentId.value);
+    const cognome = newStudentCognome.value.trim();
+    const nome = newStudentNome.value.trim();
+
+    if (isNaN(id) || newStudentId.value === '') {
+      statusMsg.innerText = '⚠️ Inserisci un ID valido.';
+      newStudentId.focus();
       return;
     }
-    loadJSONFromFile(fileInput.files[0]);
+    if (!cognome) {
+      statusMsg.innerText = '⚠️ Inserisci il cognome.';
+      newStudentCognome.focus();
+      return;
+    }
+    if (!nome) {
+      statusMsg.innerText = '⚠️ Inserisci il nome.';
+      newStudentNome.focus();
+      return;
+    }
+
+    const existingStudent = currentData.find(s => Number(s.id) === id);
+    if (existingStudent) {
+      statusMsg.innerText = `⚠️ L'ID ${id} è già in uso da ${existingStudent.cognome} ${existingStudent.nome}.`;
+      newStudentId.focus();
+      return;
+    }
+
+    const newStudent = {
+      id: id,
+      cognome: cognome,
+      nome: nome,
+      classe: newStudentClasse.value.trim(),
+      room: newStudentRoom.value.trim(),
+      percorso: newStudentPercorso.value.trim(),
+      gruppo: newStudentGruppo.value.trim()
+    };
+
+    currentData.push(newStudent);
+    masterData.push(JSON.parse(JSON.stringify(newStudent)));
+
+    applyFilter();
+    hideAddStudentPanel();
+    statusMsg.innerText = `✅ Studente aggiunto: ${cognome} ${nome} (ID ${id}).`;
+  }
+
+  function deleteStudent(student) {
+    const nomeCompleto = `${student.cognome} ${student.nome}`;
+    if (!confirm(`⚠️ Vuoi eliminare definitivamente lo studente?\n\n${nomeCompleto}\nID: ${student.id}`)) {
+      return;
+    }
+
+    currentData = currentData.filter(s => s !== student);
+    masterData = masterData.filter(s => Number(s.id) !== Number(student.id));
+
+    applyFilter();
+    statusMsg.innerText = `🗑️ Studente ${nomeCompleto} eliminato.`;
+  }
+
+  // Event Listeners
+  addStudentBtn.addEventListener('click', showAddStudentPanel);
+  confirmAddStudentBtn.addEventListener('click', addStudent);
+  cancelAddStudentBtn.addEventListener('click', hideAddStudentPanel);
+
+  loadBtn.addEventListener('click', () => {
+    if (fileInput.files.length === 0) {
+      statusMsg.innerText = '⚠️ Seleziona un file JSON o JavaScript prima di caricare.';
+      return;
+    }
+    loadDataFromFile(fileInput.files[0]);
   });
-  searchInput.addEventListener('input', () => applyFilter());
+
+  searchInput.addEventListener('input', applyFilter);
   exportJsonBtn.addEventListener('click', exportToJSON);
   exportJsBtn.addEventListener('click', exportToJS);
   resetBtn.addEventListener('click', resetChanges);
   applyOnFilteredBtn.addEventListener('click', applyOnFiltered);
   applyOnAllBtn.addEventListener('click', applyOnAll);
 
-  // Messaggio iniziale
-  statusMsg.innerText = '📂 Carica il file studenti.json (con l’array tuttiStudenti) per iniziare.';
+  // Inizializzazione UI
+  statusMsg.innerText = '📂 Carica un file JSON o JS per cominciare.';
 </script>
 </body>
 </html>
