@@ -586,7 +586,7 @@ function generaPopUpStampaBus() {
     const validi = sorgenteStudenti.filter((s) => {
         if (!s || !s.cognome || !s.classe) return false;
         const classe = s.classe.toUpperCase();
-        const escluse = ["2A", "2B"];
+        const escluse = ["2A", "2B", "4C"];
         return !escluse.includes(classe) && !classe.includes("P");
     });
 
