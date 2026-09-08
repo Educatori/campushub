@@ -1,8 +1,15 @@
+// firebase-hub-sync.js
+
 // 1. FUNZIONE DI LOGIN
 function login() {
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+    const emailInput = document.getElementById('loginEmail');
+    const passwordInput = document.getElementById('loginPassword');
     const errorDiv = document.getElementById('loginError');
+
+    const email = emailInput ? emailInput.value.trim() : '';
+    const password = passwordInput ? passwordInput.value : '';
+
+    if (!errorDiv) return;
 
     if (!email || !password) {
         errorDiv.innerText = "Inserisci sia email che password.";
@@ -11,12 +18,11 @@ function login() {
 
     auth.signInWithEmailAndPassword(email, password)
         .then((userCredential) => {
-            // Login effettuato con successo
             errorDiv.innerText = "";
-            document.getElementById('loginScreen').style.display = 'none';
+            const loginScreen = document.getElementById('loginScreen');
+            if (loginScreen) loginScreen.style.display = 'none';
             console.log("👋 Benvenuto Amministratore:", userCredential.user.email);
             
-            // Avvia il caricamento dei dati dal database
             inizializzaDatiDalCloud();
         })
         .catch((error) => {
@@ -28,40 +34,48 @@ function login() {
 // 2. FUNZIONE DI LOGOUT
 function logout() {
     auth.signOut().then(() => {
-        // Mostra di nuovo la schermata di login e ricarica la pagina per pulire la memoria
-        document.getElementById('loginScreen').style.display = 'flex';
+        const loginScreen = document.getElementById('loginScreen');
+        if (loginScreen) loginScreen.style.display = 'flex';
         window.location.reload();
+    }).catch((error) => {
+        console.error("Errore durante il logout:", error);
     });
 }
 
-// 3. CONTROLLO STATO AUTENTICAZIONE (Resta loggato se aggiorni la pagina)
+// 3. CONTROLLO STATO AUTENTICAZIONE (Persistenza Sessione)
 auth.onAuthStateChanged((user) => {
+    const loginScreen = document.getElementById('loginScreen');
+    const statusElem = document.getElementById('connection-status');
+
     if (user) {
-        // L'utente è già loggato
-        document.getElementById('loginScreen').style.display = 'none';
-        document.getElementById('connection-status').innerHTML = "🟢 Connesso: Admin";
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (statusElem) statusElem.innerHTML = `🟢 Connesso: ${user.email || 'Admin'}`;
         inizializzaDatiDalCloud();
     } else {
-        // Nessun utente loggato, mostra il blocco di login
-        document.getElementById('loginScreen').style.display = 'flex';
+        if (loginScreen) loginScreen.style.display = 'flex';
+        if (statusElem) statusElem.innerHTML = "🔴 Non connesso";
     }
 });
 
-// 4. RECUPERO DATI DA FIREBASE
+// 4. RECUPERO DATI DA FIREBASE IN TEMPO REALE
 function inizializzaDatiDalCloud() {
-    // Comunica al cruscotto che stiamo scaricando i dati
-    document.getElementById('info-reset').innerText = "Scaricamento dati in corso...";
+    const infoReset = document.getElementById('info-reset');
+    if (infoReset) infoReset.innerText = "Scaricamento dati in corso...";
 
-    // Ascolta i dati da Firebase in tempo reale
+    // Ascolta i dati da Firebase
     db.ref('archivio_campus').on('value', (snapshot) => {
         const datiCloud = snapshot.val();
         
         if (datiCloud) {
             console.log("📊 Dati ricevuti da Firebase:", datiCloud);
             
-            // SOVRASCRIVIAMO LE VECCHIE VARIABILI STATICHE DEI TUOI FILE JS
-            // In questo modo le tue funzioni di stampa leggeranno i dati freschi dal cloud!
-            window.tuttiStudenti = datiCloud.studenti || [];
+            // SOVRASCRITTURA DELLE VARIABILI GLOBALI (WINDOW)
+            // Supporta sia l'alias "studenti" che "studenticonvittori" per compatibilità
+            const listaStudenti = datiCloud.studenti || datiCloud.studenticonvittori || [];
+            
+            window.tuttiStudenti = listaStudenti;
+            window.studenticonvittori = listaStudenti; // Mantiene la sincronizzazione con campus_hub-script.js
+            
             window.ORARI_PP = datiCloud.orari_pp || {};
             window.OVERRIDE_TURNI_DINNER = datiCloud.override_turni || {};
             window.ASSENTI_PERMESSO = datiCloud.assenti_permesso || {};
@@ -70,19 +84,25 @@ function inizializzaDatiDalCloud() {
             window.TURNI_DINNER = datiCloud.turni_dinner || {};
             window.LAB_DINNER = datiCloud.lab_dinner || {};
 
-            // Aggiorna l'orario di ultimo aggiornamento nel tuo HTML
+            // Aggiorna l'orario nell'interfaccia
             const oraAttuale = new Date().toLocaleTimeString('it-IT');
-            document.getElementById('info-reset').innerText = `Ultimo aggiornamento cloud: oggi alle ${oraAttuale}`;
+            if (infoReset) {
+                infoReset.innerText = `Ultimo aggiornamento cloud: oggi alle ${oraAttuale}`;
+            }
 
-            // Esegui la funzione principale del tuo script per ridisegnare l'interfaccia con i nuovi dati
+            // Ridisegna la dashboard tramite la funzione principale
             if (typeof applicaFiltri === 'function') {
                 applicaFiltri();
             }
         } else {
-            document.getElementById('info-reset').innerText = "Database vuoto. Inserire i dati iniziali.";
+            if (infoReset) {
+                infoReset.innerText = "Database vuoto. Inserire i dati iniziali.";
+            }
         }
     }, (error) => {
         console.error("Errore nel recupero dati (Permessi insufficienti?):", error);
-        document.getElementById('info-reset').innerText = "Errore di sincronizzazione: Accesso Negato.";
+        if (infoReset) {
+            infoReset.innerText = "Errore di sincronizzazione: Accesso Negato.";
+        }
     });
 }
