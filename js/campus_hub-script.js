@@ -574,14 +574,11 @@ function generaPopUpStampaBus() {
     domani.setDate(oggi.getDate() + 1);
     const dataDomaniTestuale = domani.toLocaleDateString("it-IT", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    let sorgenteStudenti = [];
-    if (typeof window.studenticonvittori !== "undefined") {
-        sorgenteStudenti = window.studenticonvittori;
-    } else if (typeof studenticonvittori !== "undefined") {
-        sorgenteStudenti = studenticonvittori;
-    } else {
-        console.error("Errore: studenticonvittori non definito.");
-        alert("Errore: database studenti non caricato.");
+    // Recupero della sorgente studenti con fallback sicuro
+    let sorgenteStudenti = window.studenticonvittori || window.tuttiStudenti || (typeof studenticonvittori !== "undefined" ? studenticonvittori : []);
+
+    if (!sorgenteStudenti || sorgenteStudenti.length === 0) {
+        alert("Attenzione: Il database degli studenti è vuoto o il caricamento da Firebase è ancora in corso. Riprova tra qualche secondo.");
         return;
     }
     
@@ -592,6 +589,11 @@ function generaPopUpStampaBus() {
         const escluse = ["2A", "2B"];
         return !escluse.includes(classe) && !classe.includes("P");
     });
+
+    if (validi.length === 0) {
+        alert("Nessun convittore trovato per l'appello del bus.");
+        return;
+    }
 
     // SEPARAZIONE E ORDINAMENTO CORRETTO
     const resto = validi.filter((s) => s.classe !== "5B");
@@ -611,8 +613,8 @@ function generaPopUpStampaBus() {
     const colonneHtml = ["", "", ""];
 
     listaFinale.forEach((s, index) => {
-        const colIndex = Math.floor(index / itemsPerCol);
-        const infoClasse = `${s.classe} ${s.percorso ? s.percorso : ""} ${s.gruppo ? "• " + s.gruppo : ""}`;
+        const colIndex = Math.min(Math.floor(index / itemsPerCol), 2);
+        const infoClasse = `${s.classe}${s.percorso ? " " + s.percorso : ""}${s.gruppo ? " • " + s.gruppo : ""}`;
 
         let bgStyle = "";
         if (s.classe === "5B") {
@@ -620,94 +622,72 @@ function generaPopUpStampaBus() {
             if (s.gruppo === "G2") bgStyle = "background-color: #fef9e7;";
         }
 
-        // RECUPERO DELLO STAND-BY DAL DOM IN SICUREZZA (Escape Apostrofi/Spazi)
-        const cognomeEscaped = s.cognome.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-        const rigaElemento = document.querySelector(`.student-row[data-cognome="${cognomeEscaped}"]`);
-        let visualizzaStandBy = "";
-        if (rigaElemento) {
-            const isStandBy = typeof verificaStudenteStandBy === "function" ? verificaStudenteStandBy(rigaElemento) : false;
-            visualizzaStandBy = isStandBy ? "➖" : "";
-        }
+        // RECUPERO DELLO STAND-BY DAL DOM IN SICUREZZA
+        const cognomeSafe = s.cognome.replace(/'/g, "\\'");
+        const rowDOM = document.querySelector(`.student-row[data-cognome="${cognomeSafe}"]`);
+        const isStandBy = (rowDOM && typeof verificaStudenteStandBy === "function") ? verificaStudenteStandBy(rowDOM) : false;
+        const markStandBy = isStandBy ? " ➖" : "";
 
         colonneHtml[colIndex] += `
             <div class="bus-row" style="${bgStyle}">
-                <div class="b-cell b-room">${s.room || ""}</div>
-                <div class="b-cell b-name"><b>${s.cognome}</b></div>
-                <div class="b-cell b-class">${infoClasse}</div>
+                <div class="b-cell b-class"><b>${infoClasse}</b></div>
+                <div class="b-cell b-name"><b>${s.cognome}</b> ${s.nome || ""}${markStandBy}</div>
                 <div class="b-cell b-check"></div>
-                <div class="b-cell b-standby" style="font-size: 0.9em;">${visualizzaStandBy}</div>
                 <div class="b-cell b-notes"></div>
             </div>`;
     });
 
-    // GENERAZIONE INTERFACCIA COMPATTA A4 LANDSCAPE
+    // GENERAZIONE POP-UP E STAMPA
     const popup = window.open("", "_blank", "width=1200,height=800");
+    if (!popup) {
+        alert("Pop-up bloccato dal browser! Abilita i pop-up per questo sito.");
+        return;
+    }
+
     popup.document.write(`
-        <html><head><title>Appello Bus - Elenco Domattina</title><style>
+        <html><head><title>Appello Bus Mattino - ${dataDomaniTestuale}</title><style>
             @page { size: A4 landscape; margin: 0.4cm; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 5px; color: #000; line-height: 1.1; }
-            h2 { text-align: center; text-transform: uppercase; margin: 2px 0 0 0; font-size: 1.1rem; }
-            .date-subtitle { text-align: center; font-size: 0.85rem; font-weight: bold; margin-bottom: 8px; color: #111; text-transform: capitalize; }
-            .timestamp { position: absolute; top: 5px; right: 10px; font-size: 0.6rem; color: #777; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 5px; color: #000; line-height: 1.1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            h2 { text-align: center; text-transform: uppercase; margin: 5px 0 2px 0; font-size: 1.2rem; letter-spacing: 1px; }
+            .date-subtitle { text-align: center; font-size: 0.85rem; margin-bottom: 10px; color: #333; font-weight: bold; text-transform: uppercase; }
+            .timestamp { position: absolute; top: 5px; right: 10px; font-size: 0.65rem; color: #777; }
             .grid-container { display: flex; gap: 10px; justify-content: space-between; }
             .colonna { width: 32.5%; display: flex; flex-direction: column; }
-            
-            .column-header { display: flex; background: #333; color: white; font-weight: bold; font-size: 0.6rem; text-transform: uppercase; border: 1px solid #000; height: 18px; }
-            
-            .bus-row { display: flex; font-size: 0.68rem; border-left: 1px solid #000; border-right: 1px solid #000; border-bottom: 1px solid #000; align-items: stretch; page-break-inside: avoid; height: 22px; }
-            
-            .b-cell, .h-cell { padding: 2px 2px; text-align: center; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; }
-            
-            .b-room, .h-room { width: 25px; font-size: 0.58rem; }
-            .b-room { border-right: 1px solid #ccc; font-weight: bold; background: #f5f5f5; }
-            .h-room { border-right: 1px solid #555; }
-            
-            .b-name, .h-name { width: 105px; text-align: left; justify-content: flex-start; padding-left: 4px; }
+            .column-header { display: flex; background: #34495e; color: white; font-weight: bold; font-size: 0.70rem; text-transform: uppercase; border: 1px solid #000; height: 22px; box-sizing: border-box; }
+            .bus-row { display: flex; font-size: 0.70rem; border-left: 1px solid #000; border-right: 1px solid #000; border-bottom: 1px solid #000; align-items: stretch; page-break-inside: avoid; height: 20px !important; box-sizing: border-box; }
+            .b-cell, .h-cell { padding: 2px 4px; text-align: center; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; height: 100%; box-sizing: border-box; }
+            .b-class, .h-class { width: 60px; font-size: 0.62rem; }
+            .b-class { border-right: 1px solid #ccc; background: #f5f5f5; }
+            .h-class { border-right: 1px solid #555; }
+            .b-name, .h-name { width: 140px; text-align: left; justify-content: flex-start; padding-left: 6px; }
             .b-name { border-right: 1px solid #ccc; text-transform: uppercase; text-overflow: ellipsis; }
             .h-name { border-right: 1px solid #555; }
-            
-            .b-class, .h-class { width: 65px; font-size: 0.55rem; }
-            .b-class { border-right: 1px solid #ccc; }
-            .h-class { border-right: 1px solid #555; }
-            
-            .b-check, .h-check { width: 22px; }
+            .b-check, .h-check { width: 30px; }
             .b-check { border-right: 1px solid #ccc; }
             .h-check { border-right: 1px solid #555; }
-            
-            .b-standby, .h-standby { width: 25px; border-right: 1px solid #ccc; }
-            .h-standby { border-right: 1px solid #555; }
-
-            .b-notes, .h-notes { flex-grow: 1; text-align: left; justify-content: flex-start; padding-left: 4px; }
-            
-            .no-print { text-align: center; margin-bottom: 8px; }
+            .b-notes, .h-notes { flex-grow: 1; text-align: left; justify-content: flex-start; padding-left: 6px; }
+            .no-print { text-align: center; margin-bottom: 12px; }
             @media print { .no-print { display: none; } }
         </style></head><body>
-            <div class="timestamp">Elaborato il ${dataOggi} alle ${oraEsatta}</div>
-            <h2>BUS DOMATTINA</h2>
-            <div class="date-subtitle">Trasporto del ${dataDomaniTestuale} — Studenti tot: <b>${listaFinale.length}</b></div>
-            
+            <div class="timestamp">Generato il ${dataOggi} alle ${oraEsatta}</div>
+            <h2>BUS MATTINO (7:30)</h2>
+            <div class="date-subtitle">Per Domani: ${dataDomaniTestuale} — Totale: <b>${listaFinale.length}</b></div>
             <div class="no-print">
-                <button onclick="window.print()" style="padding:6px 30px; background:#27ae60; color:white; font-weight:bold; border-radius:20px; border:none; cursor:pointer; font-size:0.9rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    •STAMPA ELENCO
-                </button>
+                <button onclick="window.print()" style="padding:8px 35px; background:#27ae60; color:white; font-weight:bold; border-radius:20px; border:none; cursor:pointer; font-size:0.9rem;">• STAMPA BUS MATTINO</button>
             </div>
-
             <div class="grid-container">
                 ${colonneHtml.map((htmlDest) => `
                     <div class="colonna">
                         <div class="column-header">
-                            <div class="h-cell h-room">Room</div>
-                            <div class="h-cell h-name">Cognome</div>
                             <div class="h-cell h-class">Classe</div>
-                            <div class="h-cell h-check">Pres</div>
-                            <div class="h-cell h-standby">StBy</div>
+                            <div class="h-cell h-name">Cognome e Nome</div>
+                            <div class="h-cell h-check">OK</div>
                             <div class="h-cell h-notes">Note</div>
                         </div>
                         ${htmlDest}
                     </div>`).join("")}
             </div>
-        </body></html>
-    `);
+        </body></html>`);
     popup.document.close();
 }
 
