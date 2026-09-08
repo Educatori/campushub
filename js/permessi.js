@@ -20,7 +20,6 @@ const TURNI_DINNER = {
 const LAB_DINNER={ 
    
 
-    1": ['2P'], 2: ['2A'], 3: ['2B'], 4: ['5A', '5B']
 };
 
 
