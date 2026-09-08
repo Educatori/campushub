@@ -1,7 +1,6 @@
-[
-
-  {
-    "id": 1,
+const tuttiStudenti = [
+    {
+        "id": 1,
     "cognome": "CASTROREALE",
     "nome": "Maria Sunshine",
     "classe": "1A",
@@ -2063,5 +2062,5 @@
     "room": "-",
     "percorso": "🍷"
     }
-  ]
+  ];
 
